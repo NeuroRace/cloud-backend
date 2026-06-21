@@ -1,0 +1,10 @@
+# secrets — nunca commitar
+.env
+supabase/functions/.env
+
+# supabase local
+supabase/.temp/
+supabase/.branches/
+
+# os
+.DS_Store
