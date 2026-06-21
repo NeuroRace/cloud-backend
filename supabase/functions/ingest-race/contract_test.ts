@@ -39,3 +39,60 @@ Deno.test("started_at nao-int falha", () => {
   const r = validateIngestBody({ ...valid, started_at: "ontem" });
   assertEquals(r.ok ? "" : r.error, "started_at_must_be_int");
 });
+Deno.test("race_id nao-uuid falha", () => {
+  const r = validateIngestBody({ ...valid, race_id: "not-a-uuid" });
+  assertEquals(r.ok ? "" : r.error, "race_id_must_be_uuid");
+});
+Deno.test("source invalido falha", () => {
+  const r = validateIngestBody({ ...valid, source: "human" });
+  assertEquals(r.ok ? "" : r.error, "source_invalid");
+});
+Deno.test("finished_at nao-int falha", () => {
+  const r = validateIngestBody({ ...valid, finished_at: 1.5 });
+  assertEquals(r.ok ? "" : r.error, "finished_at_must_be_int");
+});
+Deno.test("player_uuid nao-string-nao-null falha", () => {
+  const r = validateIngestBody({ ...valid, player_uuid: 42 });
+  assertEquals(r.ok ? "" : r.error, "player_uuid_must_be_string_or_null");
+});
+Deno.test("body null falha", () => {
+  const r = validateIngestBody(null);
+  assertEquals(r.ok ? "" : r.error, "body_must_be_object");
+});
+Deno.test("telemetry_points nao-array falha", () => {
+  const r = validateIngestBody({ ...valid, telemetry_points: "x" });
+  assertEquals(r.ok ? "" : r.error, "telemetry_points_must_be_array");
+});
+Deno.test("telemetry_point nao-object falha", () => {
+  const r = validateIngestBody({ ...valid, telemetry_points: [null] });
+  assertEquals(r.ok ? "" : r.error, "telemetry_point_must_be_object");
+});
+Deno.test("telemetry eeg_power nao-object falha", () => {
+  const r = validateIngestBody({ ...valid,
+    telemetry_points: [{ ...valid.telemetry_points[0], eeg_power: [] }] });
+  assertEquals(r.ok ? "" : r.error, "telemetry_eeg_power_must_be_object");
+});
+Deno.test("telemetry t nao-int falha", () => {
+  const r = validateIngestBody({ ...valid,
+    telemetry_points: [{ ...valid.telemetry_points[0], t: 1.5 }] });
+  assertEquals(r.ok ? "" : r.error, "telemetry_t_must_be_int");
+});
+Deno.test("telemetry attention nao-int falha", () => {
+  const r = validateIngestBody({ ...valid,
+    telemetry_points: [{ ...valid.telemetry_points[0], attention: "x" }] });
+  assertEquals(r.ok ? "" : r.error, "telemetry_attention_must_be_int");
+});
+Deno.test("telemetry meditation nao-int falha", () => {
+  const r = validateIngestBody({ ...valid,
+    telemetry_points: [{ ...valid.telemetry_points[0], meditation: null }] });
+  assertEquals(r.ok ? "" : r.error, "telemetry_meditation_must_be_int");
+});
+Deno.test("telemetry poor_signal_level invalido falha", () => {
+  const r = validateIngestBody({ ...valid,
+    telemetry_points: [{ ...valid.telemetry_points[0], poor_signal_level: 1.5 }] });
+  assertEquals(r.ok ? "" : r.error, "telemetry_poor_signal_level_invalid");
+});
+Deno.test("player_uuid string valido passa", () => {
+  const r = validateIngestBody({ ...valid, player_uuid: "some-string" });
+  assertEquals(r.ok, true);
+});
