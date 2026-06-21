@@ -48,7 +48,8 @@ bot Telegram. Estes exigem ver os dados reais primeiro.
    A anon key é pública (vai no bundle do frontend) e por isso **não** é usada como
    fator de segurança aqui. service_role escreve server-side e **nunca** sai da Cloud.
 4. **[decisão]** Contrato canônico **snake_case, versionado** (`schema_version`),
-   **dono = a API**. O edge adapta (mapping no dispatcher NEU-7). Validação estrita.
+   **dono = a API**. O edge adapta (mapping no dispatcher NEU-7). Validação dos campos
+   conhecidos (tipos+ranges); campos desconhecidos ignorados (lenient, versionado por `schema_version`).
 5. **[decisão]** Escrita atômica via **função Postgres `ingest_race(payload jsonb)`**
    chamada por `rpc` (PostgREST não dá transação multi-tabela por request).
 6. **[decisão]** Telemetria em **tabela separada** (não jsonb embutido) — é o
@@ -161,9 +162,10 @@ ou seja, confirmação de email está ligada. O email digitado no kiosk/edge é 
 ## 5. Contrato (costura edge → API)
 
 Canônico, snake_case, versionado, dono = a API. É o `cloud-sync-contract.md` §3
-ajustado (`player_id:int` → `player_slot`). Validação **estrita** (campo fora do contrato
-→ `422`). O mapping camelCase→snake_case é responsabilidade do **edge** (dispatcher NEU-7),
-mantendo a fronteira limpa.
+ajustado (`player_id:int` → `player_slot`). Validação dos campos **conhecidos** (tipos +
+ranges; campo conhecido inválido → `422`); campos **desconhecidos são ignorados** (lenient —
+robusto à evolução aditiva do edge, versionado por `schema_version`). O mapping
+camelCase→snake_case é responsabilidade do **edge** (dispatcher NEU-7), mantendo a fronteira limpa.
 
 **Headers:** `x-edge-ingest-token: <EDGE_INGEST_TOKEN>` + `Content-Type: application/json`.
 
@@ -203,7 +205,8 @@ mantendo a fronteira limpa.
 
 1. Lê `x-edge-ingest-token`; compara em **tempo constante** com o secret
    `EDGE_INGEST_TOKEN`. Falha/ausente → `401`.
-2. Faz parse + **validação estrita** do body contra o contrato (§5). Falha → `422`
+2. Faz parse + **validação** do body contra o contrato (§5; campos conhecidos + tipos/ranges,
+   extras ignorados). Falha → `422`
    com `{ "error": "<code>", "message": "<humano>" }`.
 3. Chama `supabase.rpc('ingest_race', { payload })` usando a **service_role key**
    (injetada pela plataforma `[hip — confirmar injeção automática de SUPABASE_SERVICE_ROLE_KEY]`).

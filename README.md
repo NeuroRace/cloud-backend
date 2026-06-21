@@ -39,5 +39,12 @@ Em produção: `supabase secrets set EDGE_INGEST_TOKEN=...` (nunca commitar o va
 
 ## Invariante de segurança
 
-`mailer_autoconfirm` DEVE permanecer `false` — o claim de corridas por email
-depende de email verificado (`auth.users.email_confirmed_at IS NOT NULL`).
+A confirmação de email DEVE estar ligada **em produção** — o claim de corridas por
+email depende de email verificado (`auth.users.email_confirmed_at IS NOT NULL`).
+
+- **Produção (projeto hospedado):** na config de Auth do Supabase, `mailer_autoconfirm`
+  DEVE permanecer `false` (autoconfirm desligado = confirmação exigida). Verificado via
+  Management API em 2026-06-21.
+- **Local (`supabase/config.toml`):** a chave equivalente é `[auth.email] enable_confirmations`,
+  hoje `false` — tolerado localmente porque os testes setam `email_confirmed_at` diretamente.
+  Não use o comportamento local como referência do invariante de produção.
