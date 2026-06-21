@@ -44,7 +44,13 @@ Deno.serve(async (req: Request) => {
     return json(500, { error: "db_error", message: "failed to persist race" });
   }
 
-  const status = (data as { status?: string } | null)?.status ?? "created";
+  const status = (data as { status?: string } | null)?.status;
+  if (status !== "created" && status !== "duplicate") {
+    log("error", "ingest_unexpected_rpc_result", {
+      race_id: payload.race_id, idempotency_key: payload.idempotency_key,
+    });
+    return json(500, { error: "db_error", message: "unexpected ingest result" });
+  }
   log("info", "ingest_ok", {
     status, race_id: payload.race_id,
     idempotency_key: payload.idempotency_key, player_slot: payload.player_slot,

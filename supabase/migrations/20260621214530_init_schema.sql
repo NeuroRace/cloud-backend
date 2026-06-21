@@ -39,7 +39,7 @@ create index on telemetry_points (race_player_id);
 create index on race_players (player_id);
 create index on race_players (race_id);
 
--- RLS habilitado, sem policy de escrita publica. service_role bypassa RLS.
+-- RLS habilitado, sem policy de escrita publica. service_role bypassa RLS. service_role bypassa RLS mas ainda precisa de GRANT explicito (ver 20260621230000_grant_service_role.sql).
 alter table players          enable row level security;
 alter table races            enable row level security;
 alter table race_players     enable row level security;

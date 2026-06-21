@@ -2,6 +2,7 @@
 do $$
 declare
   r jsonb;
+  declare_raised boolean;
   base jsonb := jsonb_build_object(
     'schema_version','1.0',
     'idempotency_key','11111111-1111-1111-1111-111111111111',
@@ -43,6 +44,24 @@ begin
   assert (select count(*) from race_players) = 2, 'dois race_players';
   assert (select count(*) from players) = 1, 'um player canonico (mesmo email)';
   assert (select count(*) from telemetry_points) = 1, 'telemetria vazia do p2 nao gera ponto';
+
+  -- colisao de slot por jogador DIFERENTE deve levantar (nao engolir/duplicar)
+  declare_raised := false;
+  begin
+    perform ingest_race(jsonb_build_object(
+      'schema_version','1.0','idempotency_key','55555555-5555-5555-5555-555555555555',
+      'race_id','22222222-2222-2222-2222-222222222222','player_slot',1,
+      'player_email','OUTRO@test.com','player_uuid',null,'source','real',
+      'started_at',1735689600000::bigint,'finished_at',1735689660000::bigint,
+      'telemetry_points','[]'::jsonb));
+  exception when others then declare_raised := true;
+  end;
+  assert declare_raised, 'colisao de slot por jogador diferente deve levantar erro (nao duplicate)';
+  assert (select count(*) from race_players
+          where race_id='22222222-2222-2222-2222-222222222222' and player_slot=1) = 1,
+    'slot 1 permanece com 1 linha (jogador original)';
+  assert (select count(*) from players where email='outro@test.com') = 0,
+    'jogador diferente rejeitado nao deixa player orfao';
 
   raise notice 'ingest_race_test OK';
 end $$;

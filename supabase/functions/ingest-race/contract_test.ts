@@ -53,7 +53,7 @@ Deno.test("finished_at nao-int falha", () => {
 });
 Deno.test("player_uuid nao-string-nao-null falha", () => {
   const r = validateIngestBody({ ...valid, player_uuid: 42 });
-  assertEquals(r.ok ? "" : r.error, "player_uuid_must_be_string_or_null");
+  assertEquals(r.ok ? "" : r.error, "player_uuid_must_be_uuid_or_null");
 });
 Deno.test("body null falha", () => {
   const r = validateIngestBody(null);
@@ -93,6 +93,30 @@ Deno.test("telemetry poor_signal_level invalido falha", () => {
   assertEquals(r.ok ? "" : r.error, "telemetry_poor_signal_level_invalid");
 });
 Deno.test("player_uuid string valido passa", () => {
-  const r = validateIngestBody({ ...valid, player_uuid: "some-string" });
+  const r = validateIngestBody({ ...valid, player_uuid: "99999999-9999-9999-9999-999999999999" });
   assertEquals(r.ok, true);
+});
+Deno.test("player_uuid nao-uuid falha", () => {
+  const r = validateIngestBody({ ...valid, player_uuid: "not-a-uuid" });
+  assertEquals(r.ok ? "" : r.error, "player_uuid_must_be_uuid_or_null");
+});
+Deno.test("telemetry attention > 100 falha", () => {
+  const r = validateIngestBody({ ...valid, telemetry_points: [{ ...valid.telemetry_points[0], attention: 101 }] });
+  assertEquals(r.ok ? "" : r.error, "telemetry_attention_out_of_range");
+});
+Deno.test("telemetry attention < 0 falha", () => {
+  const r = validateIngestBody({ ...valid, telemetry_points: [{ ...valid.telemetry_points[0], attention: -1 }] });
+  assertEquals(r.ok ? "" : r.error, "telemetry_attention_out_of_range");
+});
+Deno.test("telemetry meditation > 100 falha", () => {
+  const r = validateIngestBody({ ...valid, telemetry_points: [{ ...valid.telemetry_points[0], meditation: 101 }] });
+  assertEquals(r.ok ? "" : r.error, "telemetry_meditation_out_of_range");
+});
+Deno.test("telemetry poor_signal_level > 200 falha", () => {
+  const r = validateIngestBody({ ...valid, telemetry_points: [{ ...valid.telemetry_points[0], poor_signal_level: 201 }] });
+  assertEquals(r.ok ? "" : r.error, "telemetry_poor_signal_level_invalid");
+});
+Deno.test("finished_at before started_at falha", () => {
+  const r = validateIngestBody({ ...valid, started_at: 2, finished_at: 1 });
+  assertEquals(r.ok ? "" : r.error, "finished_at_before_started_at");
 });

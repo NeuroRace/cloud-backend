@@ -2,6 +2,7 @@
 set -euo pipefail
 URL="http://127.0.0.1:54321/functions/v1/ingest-race"
 DB="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+case "$DB" in *127.0.0.1:54322*|*localhost:54322*) ;; *) echo "REFUSED: proof so roda contra o Supabase local (porta 54322)"; exit 1 ;; esac
 TOKEN="${EDGE_INGEST_TOKEN:-dev-only-change-me}"
 
 body() { cat <<JSON

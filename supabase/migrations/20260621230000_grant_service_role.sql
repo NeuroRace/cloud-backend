@@ -1,5 +1,5 @@
 -- service_role bypasses RLS but still needs explicit DML grants on tables.
--- ingest_race() runs with CALLER RIGHTS so it executes as the calling role (service_role).
+-- ingest_race() nao tem clausula SECURITY, entao o default e SECURITY INVOKER: executa como o role chamador (service_role), nao como o owner. service_role bypassa RLS mas ainda precisa de GRANT DML.
 grant select, insert on public.players          to service_role;
 grant select, insert on public.races            to service_role;
 grant select, insert on public.race_players     to service_role;
