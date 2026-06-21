@@ -73,10 +73,9 @@ create table players (
 -- Corrida. Uma linha por race_id (= sessionId do edge).
 create table races (
   id          uuid primary key,             -- race_id vindo do edge (UUID)
-  started_at  timestamptz not null,
-  finished_at timestamptz,                  -- aproximado: finish do último jogador (ver nota)
+  started_at  timestamptz not null,         -- início compartilhado (raceStarted do edge)
   created_at  timestamptz not null default now()
-);
+);                                          -- sem finished_at: o fim é por-jogador (ver nota)
 
 -- Resultado por jogador. Alvo da idempotência.
 create table race_players (
@@ -116,10 +115,12 @@ create index on race_players (race_id);
 - **Dupla idempotência:** `unique(idempotency_key)` **e** `unique(race_id, player_slot)`.
   Se o edge gerar um `jobId` novo numa re-consolidação, a 2ª trava ainda impede duplicar
   o resultado do jogador.
-- `races.finished_at` **[aproximação aceita]**: a corrida tem 2 jogadores que terminam em
-  momentos diferentes; cada POST traz o finish daquele jogador. `races` é criada no 1º POST;
-  `finished_at` é atualizado para o **maior** valor visto. O dado preciso por-jogador vive
-  em `race_players.finished_at`.
+- **Fim é por-jogador** [decisão do dono]: a corrida tem 2 jogadores que terminam em
+  momentos diferentes. `races` **não** tem `finished_at` — o fim é a verdade por-jogador em
+  `race_players.finished_at`. `races.started_at` é o início compartilhado (o edge cria a
+  sessão com um único `startedAt` no `raceStarted` `[ev — session_manager.onRaceStarted]`);
+  vem do payload e é fixado no 1º POST (`on conflict do nothing`). Duração por-jogador é
+  derivável (`race_players.finished_at - races.started_at`).
 - **Mesmo email nos dois slots** (ex.: email default de kiosk): ambos `race_players`
   apontam o mesmo `player_id`, mas `unique(race_id, player_slot)` permite (slots diferentes).
   Caso de teste explícito.
@@ -207,6 +208,9 @@ mantendo a fronteira limpa.
 3. Chama `supabase.rpc('ingest_race', { payload })` usando a **service_role key**
    (injetada pela plataforma `[hip — confirmar injeção automática de SUPABASE_SERVICE_ROLE_KEY]`).
 4. Traduz o retorno da função em status HTTP (§7).
+5. **Logging estruturado** (JSON) em cada caminho (criado / duplicado / 401 / 422 / erro),
+   em paridade com o broker do edge `[ev — logging JSON estruturado no edge]`. **Sem vazar
+   PII/segredo:** não logar email cru nem o token; usar `race_id`/`idempotency_key`/`player_slot`.
 
 **Deploy:** `verify_jwt=false` (a função valida o token custom ela mesma). Configurar em
 `supabase/config.toml`:
@@ -220,7 +224,7 @@ verify_jwt = false
 
 **Função SQL `ingest_race(payload jsonb) returns jsonb`** (transacional; `language plpgsql`):
 - upsert `players` por email normalizado → `player_id`;
-- upsert `races` (insert on conflict do nothing; atualiza `finished_at` para o maior);
+- upsert `races` (`insert ... on conflict (id) do nothing`; `started_at` vem do payload);
 - insert `race_players` `on conflict (idempotency_key) do nothing` **e** respeitando
   `unique(race_id, player_slot)`;
 - se já existia (replay) → retorna `{ "status": "duplicate" }` (a função trata como sucesso);
@@ -291,5 +295,10 @@ fluxo completo via RPC. CI depois (não bloqueia o MVP local).
 - Não implementa o dispatcher do edge (NEU-7) — outro repo/sessão. Apenas define o alvo.
 - Não implementa leitura/dashboard/ranking/métricas/IA/Telegram.
 - Não resolve `player_uuid` de verdade (fica `null`; depende de identificação no edge, NEU-17).
+  Mantido no contrato deliberadamente para não quebrar o schema quando NEU-17 existir.
 - Não decide hospedagem de uma API standalone — a Edge Function é o único compute agora.
+- **Gaps conhecidos, deferidos de propósito (não-MVP):** rate-limiting / anti-abuse no
+  ingest (hoje há 1 cliente confiável); validação de *plausibilidade* de timestamps além do
+  tipo (ex.: `started_at = 0`, que o `.env` vazio do PR #4 já mostrou ser possível
+  `[ev — PR #4]`); backpressure para payloads de telemetria muito grandes (ver risco §10).
 ```
