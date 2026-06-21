@@ -281,12 +281,35 @@ fluxo completo via RPC. CI depois (não bloqueia o MVP local).
 
 ## 10. Hipóteses a verificar na implementação (não são fatos)
 
-- `[hip]` `verify_jwt=false` + validação de header custom no Supabase atual. → `functions serve` local.
-- `[hip]` Edge Function injeta `SUPABASE_SERVICE_ROLE_KEY` em runtime. → ler env na função.
-- `[hip — não medi]` Volume de telemetria de uma corrida real cabe nos limites de
-  payload/tempo da Edge Function. → medir uma corrida (simulador do edge) e, se grande,
-  inserir em batch ou capar. **Risco de escala não quantificado.**
-- `[invariante]` `mailer_autoconfirm` permanece `false` (segurança do claim depende disso).
+> **SIGN-OFF — 2026-06-21 (Tasks 4, 7 e 8)**
+
+- `[ev — CONFIRMADO TRUE]` **H1:** `verify_jwt=false` + validação de header custom no
+  Supabase atual. Prova: `scripts/proof-ingest.sh` retornou `PROOF OK: 200 / 200(sem-dup) / 401 / 422`
+  enviando apenas `x-edge-ingest-token` (sem `apikey`/`Authorization`). A flag
+  `--no-verify-jwt` no `serve` **não** foi necessária; `verify_jwt=false` no
+  `config.toml` foi suficiente.
+
+- `[ev — CONFIRMADO TRUE]` **H2:** Edge Function injeta `SUPABASE_SERVICE_ROLE_KEY` e
+  `SUPABASE_URL` em runtime. As variáveis foram auto-injetadas pelo `supabase functions serve`;
+  linhas gravadas via `rpc('ingest_race', …)` com service_role sem configuração adicional.
+
+- `[ev — RESOLVIDO]` **Claim em `auth.users` (colunas NOT NULL):** o insert de teste
+  (Task 4) não exigiu colunas extras além do conjunto mínimo
+  (`instance_id, id, aud, role, email, created_at, updated_at`) nesta versão do Supabase local.
+
+- `[ev — NOVO ACHADO]` **GRANT DML explícito para service_role:** `ingest_race` é
+  `SECURITY INVOKER`; service_role bypassa RLS mas **não** herda permissões de tabela
+  automaticamente. Solução: migration `20260621230000_grant_service_role.sql`
+  (SELECT/INSERT nas 4 tabelas + EXECUTE na função). O GRANT é idempotente.
+
+- `[hip — NÃO MEDIDO — RISCO ABERTO]` **Volume de telemetria:** não foi medido com
+  uma corrida real do simulador do edge. Não é possível afirmar que o payload cabe nos
+  limites de tempo/tamanho da Edge Function. **Ação necessária antes de produção:**
+  rodar o simulador do edge end-to-end, medir o payload real e validar latência.
+  Se grande: inserir em batch ou capar telemetria no cliente.
+
+- `[invariante — mantido]` `mailer_autoconfirm` permanece `false` (segurança do
+  claim depende de email verificado — `auth.users.email_confirmed_at IS NOT NULL`).
 
 ---
 
