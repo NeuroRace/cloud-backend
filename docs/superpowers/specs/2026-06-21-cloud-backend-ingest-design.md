@@ -48,7 +48,8 @@ bot Telegram. Estes exigem ver os dados reais primeiro.
    A anon key é pública (vai no bundle do frontend) e por isso **não** é usada como
    fator de segurança aqui. service_role escreve server-side e **nunca** sai da Cloud.
 4. **[decisão]** Contrato canônico **snake_case, versionado** (`schema_version`),
-   **dono = a API**. O edge adapta (mapping no dispatcher NEU-7). Validação estrita.
+   **dono = a API**. O edge adapta (mapping no dispatcher NEU-7). Validação dos campos
+   conhecidos (tipos+ranges); campos desconhecidos ignorados (lenient, versionado por `schema_version`).
 5. **[decisão]** Escrita atômica via **função Postgres `ingest_race(payload jsonb)`**
    chamada por `rpc` (PostgREST não dá transação multi-tabela por request).
 6. **[decisão]** Telemetria em **tabela separada** (não jsonb embutido) — é o
@@ -161,9 +162,10 @@ ou seja, confirmação de email está ligada. O email digitado no kiosk/edge é 
 ## 5. Contrato (costura edge → API)
 
 Canônico, snake_case, versionado, dono = a API. É o `cloud-sync-contract.md` §3
-ajustado (`player_id:int` → `player_slot`). Validação **estrita** (campo fora do contrato
-→ `422`). O mapping camelCase→snake_case é responsabilidade do **edge** (dispatcher NEU-7),
-mantendo a fronteira limpa.
+ajustado (`player_id:int` → `player_slot`). Validação dos campos **conhecidos** (tipos +
+ranges; campo conhecido inválido → `422`); campos **desconhecidos são ignorados** (lenient —
+robusto à evolução aditiva do edge, versionado por `schema_version`). O mapping
+camelCase→snake_case é responsabilidade do **edge** (dispatcher NEU-7), mantendo a fronteira limpa.
 
 **Headers:** `x-edge-ingest-token: <EDGE_INGEST_TOKEN>` + `Content-Type: application/json`.
 
@@ -203,7 +205,8 @@ mantendo a fronteira limpa.
 
 1. Lê `x-edge-ingest-token`; compara em **tempo constante** com o secret
    `EDGE_INGEST_TOKEN`. Falha/ausente → `401`.
-2. Faz parse + **validação estrita** do body contra o contrato (§5). Falha → `422`
+2. Faz parse + **validação** do body contra o contrato (§5; campos conhecidos + tipos/ranges,
+   extras ignorados). Falha → `422`
    com `{ "error": "<code>", "message": "<humano>" }`.
 3. Chama `supabase.rpc('ingest_race', { payload })` usando a **service_role key**
    (injetada pela plataforma `[hip — confirmar injeção automática de SUPABASE_SERVICE_ROLE_KEY]`).
@@ -281,12 +284,35 @@ fluxo completo via RPC. CI depois (não bloqueia o MVP local).
 
 ## 10. Hipóteses a verificar na implementação (não são fatos)
 
-- `[hip]` `verify_jwt=false` + validação de header custom no Supabase atual. → `functions serve` local.
-- `[hip]` Edge Function injeta `SUPABASE_SERVICE_ROLE_KEY` em runtime. → ler env na função.
-- `[hip — não medi]` Volume de telemetria de uma corrida real cabe nos limites de
-  payload/tempo da Edge Function. → medir uma corrida (simulador do edge) e, se grande,
-  inserir em batch ou capar. **Risco de escala não quantificado.**
-- `[invariante]` `mailer_autoconfirm` permanece `false` (segurança do claim depende disso).
+> **SIGN-OFF — 2026-06-21 (Tasks 4, 7 e 8)**
+
+- `[ev — CONFIRMADO TRUE]` **H1:** `verify_jwt=false` + validação de header custom no
+  Supabase atual. Prova: `scripts/proof-ingest.sh` retornou `PROOF OK: 200 / 200(sem-dup) / 401 / 422`
+  enviando apenas `x-edge-ingest-token` (sem `apikey`/`Authorization`). A flag
+  `--no-verify-jwt` no `serve` **não** foi necessária; `verify_jwt=false` no
+  `config.toml` foi suficiente.
+
+- `[ev — CONFIRMADO TRUE]` **H2:** Edge Function injeta `SUPABASE_SERVICE_ROLE_KEY` e
+  `SUPABASE_URL` em runtime. As variáveis foram auto-injetadas pelo `supabase functions serve`;
+  linhas gravadas via `rpc('ingest_race', …)` com service_role sem configuração adicional.
+
+- `[ev — RESOLVIDO]` **Claim em `auth.users` (colunas NOT NULL):** o insert de teste
+  (Task 4) não exigiu colunas extras além do conjunto mínimo
+  (`instance_id, id, aud, role, email, created_at, updated_at`) nesta versão do Supabase local.
+
+- `[ev — NOVO ACHADO]` **GRANT DML explícito para service_role:** `ingest_race` é
+  `SECURITY INVOKER`; service_role bypassa RLS mas **não** herda permissões de tabela
+  automaticamente. Solução: migration `20260621230000_grant_service_role.sql`
+  (SELECT/INSERT nas 4 tabelas + EXECUTE na função). O GRANT é idempotente.
+
+- `[hip — NÃO MEDIDO — RISCO ABERTO]` **Volume de telemetria:** não foi medido com
+  uma corrida real do simulador do edge. Não é possível afirmar que o payload cabe nos
+  limites de tempo/tamanho da Edge Function. **Ação necessária antes de produção:**
+  rodar o simulador do edge end-to-end, medir o payload real e validar latência.
+  Se grande: inserir em batch ou capar telemetria no cliente.
+
+- `[invariante — mantido]` `mailer_autoconfirm` permanece `false` (segurança do
+  claim depende de email verificado — `auth.users.email_confirmed_at IS NOT NULL`).
 
 ---
 
