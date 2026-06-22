@@ -13,6 +13,10 @@ begin
   assert (select relrowsecurity from pg_class where oid='public.races'::regclass), 'RLS deve estar ON em races';
   assert (select relrowsecurity from pg_class where oid='public.race_players'::regclass), 'RLS deve estar ON em race_players';
   assert (select relrowsecurity from pg_class where oid='public.telemetry_points'::regclass), 'RLS deve estar ON em telemetry_points';
-  assert (select count(*) from pg_policies where schemaname='public') = 0, 'nenhuma policy publica esperada';
+  -- Policies: 4 de LEITURA (own-data, para o frontend); ZERO de escrita (escrita so via service_role).
+  assert (select count(*) from pg_policies where schemaname='public' and cmd='SELECT') = 4,
+    'esperado 4 policies de leitura (own-data)';
+  assert (select count(*) from pg_policies where schemaname='public' and cmd <> 'SELECT') = 0,
+    'nenhuma policy de escrita publica esperada (escrita so via service_role)';
   raise notice 'schema_test OK';
 end $$;
