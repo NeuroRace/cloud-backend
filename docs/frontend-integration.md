@@ -67,10 +67,10 @@ const { data: telemetry } = await supabase
 - Não é possível ler dados de **outro** usuário (a RLS bloqueia — testado).
 
 ## 5. Modelo de dados (4 tabelas)
-- **`players`** — jogador canônico por e-mail. `user_id` liga à conta (preenchido quando o e-mail é confirmado).
+- **`players`** — jogador canônico por e-mail. `user_id` liga à conta — é preenchido **automaticamente pelo trigger `on_auth_email_confirmed`** quando o usuário **confirma o e-mail** (vincula as corridas daquele e-mail à conta). Enquanto não confirma, fica `null` e a RLS não retorna nada para aquele usuário.
 - **`races`** — a corrida (`id`, `started_at`). O fim é por-jogador (em `race_players`).
-- **`race_players`** — resultado de um jogador numa corrida (`player_slot` 1|2, `started_at`, `finished_at`).
-- **`telemetry_points`** — amostras de EEG (`t`, `attention` 0..100, `meditation` 0..100, `poor_signal_level`, `signal_status`, `eeg_power` jsonb com as bandas do device).
+- **`race_players`** — resultado de um jogador numa corrida (`player_slot` esperado 1|2, `started_at`, `finished_at`).
+- **`telemetry_points`** — amostras de EEG (`t`, `attention`, `meditation` — esperado 0..100, validado na ingestão, **sem CHECK no banco**; `poor_signal_level`, `signal_status`, `eeg_power` jsonb com as bandas do device).
 
 ## 6. Types TypeScript
 - Já há um arquivo gerado em `supabase/types/database.types.ts` (copiem para o projeto de vocês).

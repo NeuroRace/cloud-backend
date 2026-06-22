@@ -18,5 +18,9 @@ begin
     'esperado 4 policies de leitura (own-data)';
   assert (select count(*) from pg_policies where schemaname='public' and cmd <> 'SELECT') = 0,
     'nenhuma policy de escrita publica esperada (escrita so via service_role)';
+  -- Identidade (nao so contagem): as 4 policies own-data nominais devem existir.
+  assert (select count(*) from pg_policies where schemaname='public' and policyname in
+    ('players_select_own','race_players_select_own','telemetry_points_select_own','races_select_participated')) = 4,
+    'as 4 policies own-data nominais devem existir';
   raise notice 'schema_test OK';
 end $$;
