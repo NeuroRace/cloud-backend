@@ -12,13 +12,15 @@
 - O que **NÃO** existe ainda: **ranking** (é cross-usuário, depende de decisão de produto) e qualquer endpoint de escrita pelo front (a escrita vem só do edge).
 
 ## 2. Conexão
+Instale o cliente no projeto de vocês: `npm install @supabase/supabase-js`
+
 ```ts
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from './database.types' // ver seção 6
 
 const supabase = createClient<Database>(
   'https://wtaulbdkgrnrtbfezaxw.supabase.co',
-  '<PUBLISHABLE_KEY>',  // pegar no painel: Project Settings > API > Project API keys (a "publishable"/anon)
+  'sb_publishable_JpFFIWudbZ3GxR04QINxog_GqGk7dpw', // publishable key (PUBLICA — pode ir no bundle do front). NUNCA use service_role/secret aqui.
 )
 ```
 - A **URL** é pública. A **publishable key** (`sb_publishable_...`) é feita para ir no frontend (não é segredo). **Nunca** use a `service_role`/`secret` key no front.
