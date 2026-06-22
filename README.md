@@ -14,11 +14,12 @@ Spec: `docs/superpowers/specs/2026-06-21-cloud-backend-ingest-design.md`.
 ## Testes
 
 ```bash
-# Banco (3 arquivos; cada um imprime "... OK" ao final)
+# Banco — roda TODOS os testes em supabase/tests/ (cada um imprime "... OK" ao final).
+# O glob garante que qualquer teste novo entre no runner automaticamente.
 DB="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
-psql "$DB" -v ON_ERROR_STOP=1 -f supabase/tests/schema_test.sql
-psql "$DB" -v ON_ERROR_STOP=1 -f supabase/tests/ingest_race_test.sql
-psql "$DB" -v ON_ERROR_STOP=1 -f supabase/tests/claim_test.sql
+for f in supabase/tests/*.sql; do
+  echo "== $f =="; psql "$DB" -v ON_ERROR_STOP=1 -f "$f" || exit 1
+done
 
 # Função (Deno)
 deno test supabase/functions/ingest-race/
