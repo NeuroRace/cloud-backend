@@ -46,3 +46,8 @@ begin
 
   raise notice 'claim_test OK';
 end $$;
+
+-- (G) limpeza final: remove usuarios e profiles criados durante o teste
+delete from public.profiles where id in (select id from auth.users where email ilike '%claim@test.com%' or email ilike '%mixed@test.com%');
+delete from auth.users where email ilike '%claim@test.com%' or email ilike '%mixed@test.com%';
+select 'claim_test OK' as result;

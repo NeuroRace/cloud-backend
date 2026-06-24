@@ -9,7 +9,7 @@ language sql
 security definer
 set search_path = public
 as $$
-  select (row_number() over (order by s.score asc))::int as rank,
+  select (rank() over (order by s.score asc))::int as rank,
          s.display_name,
          s.score
   from (
@@ -21,11 +21,11 @@ as $$
     where p_metric = 'best_time'        -- unica metrica por enquanto; outras estendem aqui
       and pr.display_name is not null   -- so registrados com nome
       and rp.finished_at is not null    -- ignora corridas nao-finalizadas
-      and rp.finished_at >= rp.started_at  -- defesa: ignora duracao negativa (validado no ingest, defesa em profundidade)
+      and rp.finished_at > rp.started_at  -- defesa no nivel do banco; a validacao de duracao ocorre no edge-service (fora do DB)
     group by pr.display_name
   ) s
-  order by s.score asc
-  limit p_limit;
+  order by s.score asc, s.display_name asc
+  limit least(greatest(p_limit, 1), 1000);
 $$;
 
 revoke all on function public.get_leaderboard(text, int) from public;
