@@ -78,6 +78,29 @@ const { data: telemetry } = await supabase
 - Já há um arquivo gerado em `supabase/types/database.types.ts` (copiem para o projeto de vocês).
 - Para regenerar quando o schema mudar: `supabase gen types typescript --project-id wtaulbdkgrnrtbfezaxw > database.types.ts` (precisa do token/login do Supabase) ou `--local` num checkout do `cloud-backend`.
 
+## 6.1 Alias (display_name) — setar no cadastro
+Cada usuário tem um `display_name` **único** (case-insensitive), usado no ranking. Ele começa NULL e o usuário escolhe:
+```ts
+// depois do signup/login, setar o nome:
+const { error } = await supabase
+  .from('profiles')
+  .update({ display_name: nome })
+  .eq('id', user.id)
+if (error?.code === '23505') {
+  // 23505 = unique_violation -> nome já em uso, pedir outro
+}
+```
+Regras: 3–20 caracteres, sem espaço nas pontas. O usuário **só aparece no ranking depois de ter um nome**.
+
+## 6.2 Ranking / leaderboard (público)
+```ts
+// metric: 'best_time' (por enquanto). Retorna [{ rank, display_name, score }]
+const { data } = await supabase.rpc('get_leaderboard', { p_metric: 'best_time', p_limit: 50 })
+// score de best_time = duração da melhor corrida em SEGUNDOS (menor = melhor)
+```
+- É **público** (funciona logado ou não). Devolve só `rank`, `display_name`, `score` — sem e-mail.
+- Para destacar "você", compare `display_name` com o do próprio usuário (lido de `profiles`).
+
 ## 7. Limitações honestas (para não perderem tempo)
 - **Banco vazio até o edge gravar a 1ª corrida real.** Vocês conseguem montar UI, auth e queries agora; os dados aparecem quando uma corrida real fluir (e o usuário se cadastrar com o e-mail daquela corrida). Não há seed.
 - **Ranking não existe** — não tentem construir ainda (decisão de produto pendente).
