@@ -60,12 +60,13 @@ Estado verde de referência (verificado 2026-07-02): **6 testes SQL OK + `31 pas
 5. Deletar a branch após o merge (local e remoto).
 
 ## Segredos / tokens (NUNCA ecoar, NUNCA commitar)
-- Tokens ficam em **variáveis de ambiente**: `SUPABASE_ACCESS_TOKEN` (Management API + CLI) e `LINEAR_API_KEY` (API do Linear). Setup em `~/.neurorace-secrets.sh` (via macOS Keychain) — ver "Setup de tokens" abaixo.
+- Tokens ficam em **variáveis de ambiente**: `SUPABASE_ACCESS_TOKEN` (Management API + CLI) e `LINEAR_API_KEY` (API do Linear).
+- **Já estão configurados nesta máquina** (macOS Keychain → env via `~/.zshrc` que faz source de `~/.neurorace-secrets.sh`). Numa sessão nova as env vars **já vêm populadas** — apenas **use** `$SUPABASE_ACCESS_TOKEN` / `$LINEAR_API_KEY`, não refaça o setup. (O bloco "Setup de tokens" abaixo é só para uma máquina NOVA.) Setup global por-usuário: vale em qualquer diretório desta conta, não só neste repo.
 - Use `$SUPABASE_ACCESS_TOKEN` / `$LINEAR_API_KEY` nos comandos (`curl -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" ...`). O valor expande em runtime; **nunca** o imprima.
 - `.env`, `supabase/functions/.env`, `.secret.prod.env` são gitignored. `EDGE_INGEST_TOKEN` de produção (secret da Edge Function) fica em `.secret.prod.env` (local, `chmod 600`).
 - **NÃO** rode `supabase login` com token efêmero (grava em disco); prefira `SUPABASE_ACCESS_TOKEN` como env.
 
-### Setup de tokens (uma vez, por máquina)
+### Setup de tokens (só numa máquina NOVA — já feito nesta)
 ```bash
 # 1) guarde os tokens no Keychain (não commite, não cole em chat público)
 security add-generic-password -s neurorace-supabase -a "$USER" -w '<SUPABASE_PAT>'
