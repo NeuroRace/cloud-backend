@@ -60,11 +60,13 @@ Estado verde de referência (verificado 2026-07-02): **6 testes SQL OK + `31 pas
 5. Deletar a branch após o merge (local e remoto).
 
 ## Segredos / tokens (NUNCA ecoar, NUNCA commitar)
-- Tokens ficam em **variáveis de ambiente**: `SUPABASE_ACCESS_TOKEN` (Management API + CLI) e `LINEAR_API_KEY` (API do Linear).
-- **Já estão configurados nesta máquina** (macOS Keychain → env via `~/.zshrc` que faz source de `~/.neurorace-secrets.sh`). Numa sessão nova as env vars **já vêm populadas** — apenas **use** `$SUPABASE_ACCESS_TOKEN` / `$LINEAR_API_KEY`, não refaça o setup. (O bloco "Setup de tokens" abaixo é só para uma máquina NOVA.) Setup global por-usuário: vale em qualquer diretório desta conta, não só neste repo.
-- Use `$SUPABASE_ACCESS_TOKEN` / `$LINEAR_API_KEY` nos comandos (`curl -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" ...`). O valor expande em runtime; **nunca** o imprima.
+- Tokens ficam em **variáveis de ambiente prefixadas com `NEURORACE_`** (deixa claro o projeto e evita colisão com vars de outros projetos nesta máquina): `NEURORACE_SUPABASE_ACCESS_TOKEN` e `NEURORACE_LINEAR_API_KEY`.
+- **Já estão configurados nesta máquina** (macOS Keychain → env via `~/.zshrc` que faz source de `~/.neurorace-secrets.sh`). Numa sessão nova as env vars **já vêm populadas** — apenas **use** `$NEURORACE_SUPABASE_ACCESS_TOKEN` / `$NEURORACE_LINEAR_API_KEY`, não refaça o setup. (O bloco "Setup de tokens" abaixo é só para uma máquina NOVA.) Setup global por-usuário: vale em qualquer diretório desta conta, não só neste repo.
+- Use nos comandos (o valor expande em runtime; **nunca** o imprima):
+  - **curl / Management API / Linear:** `curl -H "Authorization: Bearer $NEURORACE_SUPABASE_ACCESS_TOKEN" ...`
+  - **CLI `supabase`** (espera a var padrão `SUPABASE_ACCESS_TOKEN`): mapeie **inline** → `SUPABASE_ACCESS_TOKEN=$NEURORACE_SUPABASE_ACCESS_TOKEN supabase <cmd>`.
 - `.env`, `supabase/functions/.env`, `.secret.prod.env` são gitignored. `EDGE_INGEST_TOKEN` de produção (secret da Edge Function) fica em `.secret.prod.env` (local, `chmod 600`).
-- **NÃO** rode `supabase login` com token efêmero (grava em disco); prefira `SUPABASE_ACCESS_TOKEN` como env.
+- **NÃO** rode `supabase login` com token efêmero (grava em disco); prefira o token na env (mapeado inline como acima).
 
 ### Setup de tokens (só numa máquina NOVA — já feito nesta)
 ```bash
@@ -74,7 +76,7 @@ security add-generic-password -s neurorace-linear   -a "$USER" -w '<LINEAR_API_K
 # 2) faça o ~/.zshrc dar source no helper (o ~/.neurorace-secrets.sh já foi criado, lê do Keychain):
 echo '[ -f ~/.neurorace-secrets.sh ] && source ~/.neurorace-secrets.sh' >> ~/.zshrc
 # 3) abra um shell novo e confirme (sem revelar o valor):
-[ -n "$SUPABASE_ACCESS_TOKEN" ] && echo "SUPABASE ok" ; [ -n "$LINEAR_API_KEY" ] && echo "LINEAR ok"
+[ -n "$NEURORACE_SUPABASE_ACCESS_TOKEN" ] && echo "SUPABASE ok" ; [ -n "$NEURORACE_LINEAR_API_KEY" ] && echo "LINEAR ok"
 ```
 
 ## Ponteiros
