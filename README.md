@@ -1,7 +1,14 @@
 # cloud-backend — API do NeuroRace
 
-Ingest de corridas (Supabase Edge Function `ingest-race`) + schema Postgres.
-Spec: `docs/superpowers/specs/2026-06-21-cloud-backend-ingest-design.md`.
+API do NeuroRace no **Supabase** (Postgres + Edge Function; sem servidor próprio). Cobre hoje:
+1. **Ingest** de corridas EEG vindas do `edge-service` (Edge Function `ingest-race`).
+2. **Leitura own-data** para o front (RLS: cada usuário lê só as próprias corridas/telemetria).
+3. **Ranking/leaderboard** público por melhor tempo (`get_leaderboard`) + alias (`profiles`).
+
+O front fala **direto com o Supabase** (`@supabase/supabase-js` + RLS); a escrita vem só do edge.
+
+> **Agentes de IA:** leia o `CLAUDE.md` (ou `AGENTS.md`) na raiz — ele ensina arquitetura, testes, convenções e fluxo.
+> Guia do front: `docs/frontend-integration.md`. Specs/planos: `docs/superpowers/`.
 
 ## Rodar local
 

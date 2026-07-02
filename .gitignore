@@ -11,3 +11,8 @@ supabase/.branches/
 
 # secret de producao (local, nunca commitar)
 .secret.prod.env
+
+# scratch de agentes (nunca commitar)
+.superpowers/
+artifacts/
+inbox/
