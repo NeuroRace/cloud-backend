@@ -55,7 +55,7 @@ Estado verde de referência (verificado 2026-07-02): **6 testes SQL OK + `31 pas
 ## Fluxo de trabalho
 1. Branch a partir de `main` (`git checkout main && git pull`, depois `git checkout -b feat/...`). Não commite direto em `main` (protegida; push é bloqueado por hook).
 2. TDD por task (teste falha → implementa → passa → commit). Para planos grandes, use `superpowers:subagent-driven-development` (implementer + review por task) e `/pr-review-toolkit:review-pr` no fim.
-3. **Worktrees:** opcionais — úteis para isolar trabalho paralelo (`superpowers:using-git-worktrees`); este repo até aqui usou branches simples in-place, o que basta para trabalho serial.
+3. **Worktrees:** prefira-as por padrão em trabalhos de implementação — isolam a mudança e permitem mais de uma sessão/agente em paralelo sem colidir no working tree (`superpowers:using-git-worktrees`). Dispensáveis para trabalhos de análise/investigação (sem escrita de código).
 4. PR → review → merge. Depois: `supabase db push` no hospedado (só DDL; **verifique read-only e NÃO toque nos dados reais do edge**).
 5. Deletar a branch após o merge (local e remoto).
 
