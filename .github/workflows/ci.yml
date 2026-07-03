@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least-privilege: este job so faz checkout e roda testes locais.
+permissions:
+  contents: read
+
+jobs:
+  db-and-function:
+    # Pin explicito (nao ubuntu-latest): o gate depende do psql do runner e do
+    # Docker; fixar a imagem evita quebra silenciosa quando o "latest" mudar.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # Stack local do Supabase (Postgres + auth + roles + extensoes). Necessaria:
+      # as migrations dependem de auth.users, dos roles anon/authenticated/service_role
+      # e de citext — um Postgres puro nao serviria.
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          # Pin explicito (gate reproduzivel): sobe a versao deliberadamente.
+          version: 2.109.0
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.8.3
+
+      - name: Start Supabase
+        run: supabase start
+
+      - name: Aplica todas as migrations do zero (db reset)
+        run: supabase db reset
+
+      - name: Testes SQL (supabase/tests/*.sql)
+        env:
+          DB: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: |
+          for f in supabase/tests/*.sql; do
+            echo "== $f =="
+            psql "$DB" -v ON_ERROR_STOP=1 -f "$f"
+          done
+
+      - name: Testes da Edge Function ingest-race (Deno)
+        run: deno test supabase/functions/ingest-race/
