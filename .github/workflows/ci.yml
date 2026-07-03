@@ -10,9 +10,16 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Least-privilege: este job so faz checkout e roda testes locais.
+permissions:
+  contents: read
+
 jobs:
   db-and-function:
-    runs-on: ubuntu-latest
+    # Pin explicito (nao ubuntu-latest): o gate depende do psql do runner e do
+    # Docker; fixar a imagem evita quebra silenciosa quando o "latest" mudar.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -22,12 +29,13 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pin explicito (gate reproduzivel): sobe a versao deliberadamente.
+          version: 2.109.0
 
       - name: Setup Deno
         uses: denoland/setup-deno@v2
         with:
-          deno-version: v2.x
+          deno-version: v2.8.3
 
       - name: Start Supabase
         run: supabase start
