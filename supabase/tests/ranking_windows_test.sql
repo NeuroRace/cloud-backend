@@ -112,5 +112,15 @@ begin
     'as tentativas de escrita nao podem ter alterado as rodadas';
 end $$;
 
+-- Quem cadastra pelo SQL editor (sessao em UTC) precisa ver que o horario leva offset;
+-- sem ele, '14:00' vira 11:00 em Sao Paulo. O comentario da coluna aparece no editor.
+do $$
+begin
+  assert col_description('public.ranking_windows'::regclass, 3) like '%-03%',
+    'starts_at deve ter comentario orientando o offset -03';
+  assert col_description('public.ranking_windows'::regclass, 4) like '%-03%',
+    'ends_at deve ter comentario orientando o offset -03';
+end $$;
+
 delete from public.ranking_windows where name like 'NEU110-T %';
 select 'ranking_windows_test OK' as result;

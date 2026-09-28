@@ -20,6 +20,12 @@ create table public.ranking_windows (
     exclude using gist (tstzrange(starts_at, ends_at, '[)') with &&)
 );
 
+-- O SQL editor do Supabase roda em UTC: horario sem offset fica 3 h adiantado em SP.
+comment on column public.ranking_windows.starts_at is
+  'Inicio da rodada. Escreva SEMPRE com offset de Sao Paulo, ex.: 2026-09-30 14:00-03';
+comment on column public.ranking_windows.ends_at is
+  'Fim da rodada (exclusivo). Escreva SEMPRE com offset de Sao Paulo, ex.: 2026-09-30 16:00-03';
+
 alter table public.ranking_windows enable row level security;
 
 create policy ranking_windows_select_public on public.ranking_windows

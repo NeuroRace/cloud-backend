@@ -5,7 +5,8 @@
 --   Ana : 30s terminou 11:00 (R1); comecou 12:10 e NAO terminou (R2)
 --   Bia : 30s terminou 10:10 (R1); 30s terminou 11:50 (R1)
 --   Caio: 20s terminou 12:00:00 exato (R2, fronteira); 50s terminou 13:00 (R2)
---   Duda: 25s terminou 13:30 (R2); 15s terminou 09:00 (antes do evento); 5s BOT terminou 12:30 (R2)
+--   Duda: 40s terminou 12:45 (R2); 25s terminou 13:30 (R2); 15s terminou 09:00 (antes do evento);
+--         5s BOT terminou 12:30 (R2). Em R2 vale 25 (menor), nao 40 (primeira).
 -- Esperado:
 --   R1     : Bia 30 (rank 1, fez primeiro), Ana 30 (rank 2)
 --            (desempate alfabetico daria Ana primeiro; usar a 2a corrida da Bia, 11:50, tambem)
@@ -45,7 +46,8 @@ insert into races (id, started_at) values
  ('5c000000-0000-0000-0000-000000000006','2031-03-15 13:29:35+00'),
  ('5c000000-0000-0000-0000-000000000007','2031-03-15 08:59:45+00'),
  ('5c000000-0000-0000-0000-000000000008','2031-03-15 12:29:55+00'),
- ('5c000000-0000-0000-0000-000000000009','2031-03-15 12:10:00+00');
+ ('5c000000-0000-0000-0000-000000000009','2031-03-15 12:10:00+00'),
+ ('5c000000-0000-0000-0000-000000000010','2031-03-15 12:44:20+00');
 
 -- (id, idempotency_key, race_id, player_id, slot, started_at, finished_at, source)
 insert into race_players (id, idempotency_key, race_id, player_id, player_slot, started_at, finished_at, source) values
@@ -57,7 +59,9 @@ insert into race_players (id, idempotency_key, race_id, player_id, player_slot, 
  ('5d000000-0000-0000-0000-000000000006', gen_random_uuid(), '5c000000-0000-0000-0000-000000000006','5b000000-0000-0000-0000-000000000004',1,'2031-03-15 13:29:35+00','2031-03-15 13:30:00+00','real'),
  ('5d000000-0000-0000-0000-000000000007', gen_random_uuid(), '5c000000-0000-0000-0000-000000000007','5b000000-0000-0000-0000-000000000004',1,'2031-03-15 08:59:45+00','2031-03-15 09:00:00+00','real'),
  ('5d000000-0000-0000-0000-000000000008', gen_random_uuid(), '5c000000-0000-0000-0000-000000000008','5b000000-0000-0000-0000-000000000004',1,'2031-03-15 12:29:55+00','2031-03-15 12:30:00+00','bot'),
- ('5d000000-0000-0000-0000-000000000009', gen_random_uuid(), '5c000000-0000-0000-0000-000000000009','5b000000-0000-0000-0000-000000000001',1,'2031-03-15 12:10:00+00',null,'real');
+ ('5d000000-0000-0000-0000-000000000009', gen_random_uuid(), '5c000000-0000-0000-0000-000000000009','5b000000-0000-0000-0000-000000000001',1,'2031-03-15 12:10:00+00',null,'real'),
+ -- Duda: 40s terminou 12:45 (R2), ANTES dos 25s das 13:30 -> prova que vale o MENOR tempo, nao a primeira corrida
+ ('5d000000-0000-0000-0000-000000000010', gen_random_uuid(), '5c000000-0000-0000-0000-000000000010','5b000000-0000-0000-0000-000000000004',1,'2031-03-15 12:44:20+00','2031-03-15 12:45:00+00','real');
 commit;
 
 -- chamadas como ANON (ranking publico). Rodadas escritas com offset -03, como o operador cadastra.

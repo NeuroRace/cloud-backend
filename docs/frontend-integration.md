@@ -104,7 +104,7 @@ const { data: rodada } = await supabase.rpc('get_leaderboard', {
 ```
 - É **público** (funciona logado ou não). Devolve só `rank`, `display_name`, `score` — sem e-mail.
 - **Desempate:** mesmo tempo → vence quem fez primeiro (rank distinto). Só empate exato de tempo e instante divide o rank.
-- **Rodadas:** `supabase.from('ranking_windows').select('id, name, starts_at, ends_at')` — leitura pública, sem sobreposição. "Evento" = desde o menor `starts_at`; "rodada atual" = `starts_at <= agora < ends_at`. Escrita só pelo SQL do Supabase (até a NEU-114).
+- **Rodadas:** `supabase.from('ranking_windows').select('id, name, starts_at, ends_at')` — leitura pública, sem sobreposição. "Evento" = desde o menor `starts_at`; "rodada atual" = `starts_at <= agora < ends_at`. Escrita só pelo SQL do Supabase (até a NEU-114), **sempre com offset**: `'2026-09-30 14:00-03'` (o editor roda em UTC; sem offset a rodada fica 3 h deslocada).
 - Para destacar "você", compare `display_name` com o do próprio usuário (lido de `profiles`).
 
 ## 9. Limitações honestas (para não perderem tempo)
