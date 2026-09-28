@@ -96,9 +96,15 @@ Regras: 3–20 caracteres, sem espaço nas pontas. O usuário **só aparece no r
 ```ts
 // metric: 'best_time' (por enquanto). Retorna [{ rank, display_name, score }]
 const { data } = await supabase.rpc('get_leaderboard', { p_metric: 'best_time', p_limit: 50 })
+// período opcional (NEU-110): conta só corridas com p_from <= finished_at < p_to
+const { data: rodada } = await supabase.rpc('get_leaderboard', {
+  p_metric: 'best_time', p_limit: 50, p_from: r.starts_at, p_to: r.ends_at,
+})
 // score de best_time = duração da melhor corrida em SEGUNDOS (menor = melhor)
 ```
 - É **público** (funciona logado ou não). Devolve só `rank`, `display_name`, `score` — sem e-mail.
+- **Desempate:** mesmo tempo → vence quem fez primeiro (rank distinto). Só empate exato de tempo e instante divide o rank.
+- **Rodadas:** `supabase.from('ranking_windows').select('id, name, starts_at, ends_at')` — leitura pública, sem sobreposição. "Evento" = desde o menor `starts_at`; "rodada atual" = `starts_at <= agora < ends_at`. Escrita só pelo SQL do Supabase (até a NEU-114).
 - Para destacar "você", compare `display_name` com o do próprio usuário (lido de `profiles`).
 
 ## 9. Limitações honestas (para não perderem tempo)
