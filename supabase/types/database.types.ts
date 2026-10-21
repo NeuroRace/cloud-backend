@@ -34,6 +34,21 @@ export type Database = {
   }
   public: {
     Tables: {
+      operadores: {
+        Row: {
+          criado_em: string
+          email: string
+        }
+        Insert: {
+          criado_em?: string
+          email: string
+        }
+        Update: {
+          criado_em?: string
+          email?: string
+        }
+        Relationships: []
+      }
       players: {
         Row: {
           created_at: string
@@ -474,6 +489,13 @@ export type Database = {
         }[]
       }
       ingest_race: { Args: { payload: Json }; Returns: Json }
+      op_acao: {
+        Args: { p_acao: string; p_motivo?: string; p_premio: string }
+        Returns: Json
+      }
+      op_config: { Args: { p_mudancas: Json }; Returns: Json }
+      op_painel: { Args: never; Returns: Json }
+      op_validar_codigo: { Args: { p_codigo: string }; Returns: Json }
       premiacao_candidatos: {
         Args: { p_corte: string; p_round: string }
         Returns: {
@@ -485,6 +507,30 @@ export type Database = {
           user_id: string
         }[]
       }
+      premiacao_mascara_contato: {
+        Args: { p_email: string; p_phone: string }
+        Returns: string
+      }
+      premiacao_op_acao: {
+        Args: {
+          p_acao: string
+          p_agora: string
+          p_motivo: string
+          p_operador: string
+          p_premio: string
+        }
+        Returns: Json
+      }
+      premiacao_op_config: {
+        Args: { p_agora: string; p_mudancas: Json; p_operador: string }
+        Returns: Json
+      }
+      premiacao_op_painel: { Args: { p_agora: string }; Returns: Json }
+      premiacao_op_validar: {
+        Args: { p_agora: string; p_codigo: string; p_operador: string }
+        Returns: Json
+      }
+      premiacao_operador_atual: { Args: never; Returns: string }
       premiacao_registra_erro: {
         Args: {
           p_agora: string
@@ -497,6 +543,15 @@ export type Database = {
       premiacao_tick: { Args: { p_agora?: string }; Returns: Json }
       premio_dar_vez: {
         Args: { p_agora: string; p_round: string }
+        Returns: string
+      }
+      premio_dar_vez_ate: {
+        Args: {
+          p_agora: string
+          p_limite: number
+          p_round: string
+          p_sortear: boolean
+        }
         Returns: string
       }
       premio_novo_codigo: { Args: never; Returns: string }
