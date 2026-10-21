@@ -4,7 +4,9 @@
 --   1. O operador passa a pedir so e-mail no painel.
 --   2. PRIMEIRO republicar a ingest-race anterior (a de 29f0de3), com verify_jwt desligado:
 --        git worktree add ../cb-volta 29f0de3
---        cd ../cb-volta && supabase functions deploy ingest-race --no-verify-jwt --project-ref wtaulbdkgrnrtbfezaxw
+--        cd ../cb-volta && SUPABASE_ACCESS_TOKEN=$NEURORACE_SUPABASE_ACCESS_TOKEN \
+--          supabase functions deploy ingest-race --no-verify-jwt --project-ref wtaulbdkgrnrtbfezaxw
+--      (o token vem da env, como no CLAUDE.md: sem ele o deploy para no login.)
 --      (ou pelo MCP do Supabase, deploy_edge_function com os 3 arquivos de
 --      supabase/functions/ingest-race/ de 29f0de3 e verify_jwt: false).
 --      A anterior recusa player_phone com 422 player_email_required: o edge guarda a
