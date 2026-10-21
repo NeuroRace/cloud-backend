@@ -108,6 +108,20 @@ const { data: rodada } = await supabase.rpc('get_leaderboard', {
 - **Rodadas:** `supabase.from('ranking_windows').select('id, name, starts_at, ends_at')` — leitura pública, sem sobreposição. "Evento" = desde o menor `starts_at`; "rodada atual" = `starts_at <= agora < ends_at`. Escrita só pelo SQL do Supabase (até a NEU-114), **sempre com offset**: `'2026-09-30 14:00-03'` (o editor roda em UTC; sem offset a rodada fica 3 h deslocada).
 - Para destacar "você", compare `display_name` com o do próprio usuário (lido de `profiles`).
 
+## 8.1 Prêmio da rodada (NEU-167)
+O banco fecha a rodada no fim + carência (padrão 5 min), congela o 1º elegível (por conta, um prêmio por conta no evento) e gera um código de 6 dígitos. Corrida que chega à nuvem depois do fechamento não troca o vencedor. Tudo começa desligado (`premiacao_config.premiacao_ligada`).
+```ts
+// Público (telão): uma linha por rodada que a premiação cuida (acabou depois de ligada_em).
+// [{ round_id, round_name, display_name, score }]. display_name e score nulos = carência,
+// sem retirada ou cancelado (o letreiro some). Premiação desligada: nenhuma linha.
+const { data: oficiais } = await supabase.rpc('get_official_winners')
+// Só logado: os prêmios da própria conta no evento atual, o mais recente primeiro.
+// [{ round_name, status, code, claim_deadline, delivered_at }]. code só vem quando vale.
+const { data: meus } = await supabase.rpc('get_my_prize')
+```
+- Estados (`status`, snake_case): `avisado`, `prazo_estourou` (código ainda vale), `entregue`, `passou` (foi para outra conta), `recusado`, `cancelado`; `avisando`/`aviso_falhou` só quando houver canal de aviso (NEU-112).
+- As tabelas da premiação (`premiacao_config`, `premiacao_rodadas`, `premios`, `premiacao_registro`) **não** são lidas pelo site: só pelas funções acima.
+
 ## 9. Limitações honestas (para não perderem tempo)
 - **Banco vazio até o edge gravar a 1ª corrida real.** Vocês conseguem montar UI, auth e queries agora; os dados aparecem quando uma corrida real fluir (e o usuário se cadastrar com o e-mail daquela corrida). Não há seed.
 - **Ranking mostra só quem tem `display_name` + corridas finalizadas.** Fica vazio enquanto os jogadores não tiverem escolhido um nome e não tiverem finalizadas corridas; é comportamento esperado.

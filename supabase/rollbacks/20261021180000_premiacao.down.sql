@@ -1,0 +1,45 @@
+-- Volta da NEU-167 (20261021180000_premiacao.sql). NAO fica em migrations/: so roda a mao.
+-- Rodar inteiro numa transacao: psql -v ON_ERROR_STOP=1 -1 -f <este arquivo>
+--
+-- Antes de tudo, o jeito mais leve de parar (sem este arquivo):
+--   update public.premiacao_config set premiacao_ligada = false;   -- para de fechar rodadas
+--   select cron.unschedule('premiacao-tick');                       -- tira o agendamento
+--
+-- Parte A (sempre segura): tira o agendamento e as funcoes. O site volta a ser o de hoje:
+-- get_my_prize e get_official_winners somem (PGRST202), o cartao do premio nao aparece e o
+-- letreiro do telao volta ao 1o ao vivo. As tabelas e os premios ficam guardados.
+--
+-- Parte B (APAGA premios e codigos, inclusive os ja entregues): fica COMENTADA de proposito,
+-- para ninguem destruir premio com pressa no dia. Rodar este arquivo inteiro = so a Parte A.
+-- Para apagar tudo, descomente as 4 linhas da Parte B e rode de novo. Depois, em prod, apague
+-- tambem a linha da migration:
+--   delete from supabase_migrations.schema_migrations where version = '20261021180000';
+
+-- RELIGAR depois da Parte A (no dia do evento): NAO reaplique a migration (falha em
+-- "premiacao_config already exists" e o db push nao age). Rode:
+--   psql -v ON_ERROR_STOP=1 -1 -f supabase/rollbacks/20261021180000_premiacao.reapply.sql
+-- (recria as funcoes com os mesmos grants e agenda o tick; premios e regras ficam).
+
+-- ===== Parte A =====
+do $$
+begin
+  -- SQL dinamico: sem pg_cron instalado, cron.job nem existe e nao pode ser planejado.
+  if to_regclass('cron.job') is not null then
+    execute $q$select cron.unschedule(jobid) from cron.job where jobname = 'premiacao-tick'$q$;
+  end if;
+end $$;
+
+drop function if exists public.get_official_winners();
+drop function if exists public.get_my_prize();
+drop function if exists public.premiacao_tick(timestamptz);
+drop function if exists public.premiacao_registra_erro(timestamptz, uuid, uuid, text);
+drop function if exists public.premio_passar(uuid, text, timestamptz, text, text);
+drop function if exists public.premio_dar_vez(uuid, timestamptz);
+drop function if exists public.premio_novo_codigo();
+drop function if exists public.premiacao_candidatos(uuid, timestamptz);
+
+-- ===== Parte B (comentada) =====
+-- drop table if exists public.premiacao_registro;
+-- drop table if exists public.premios;
+-- drop table if exists public.premiacao_rodadas;
+-- drop table if exists public.premiacao_config;

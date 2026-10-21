@@ -16,7 +16,7 @@ Projeto hospedado: ref **`wtaulbdkgrnrtbfezaxw`** · endpoint de ingest: `https:
 
 ## Arquitetura (o que existe hoje — evidência: `supabase/migrations/`)
 - **Edge Function `ingest-race`** (`supabase/functions/ingest-race/`, Deno): recebe o POST do edge, valida token (`x-edge-ingest-token`, `verify_jwt=false`) e o contrato, chama `ingest_race` via rpc com `service_role`. Arquivos: `index.ts` (handler), `auth.ts` (compare tempo-constante), `contract.ts` (validação).
-- **Postgres (12 migrations)**:
+- **Postgres (13 migrations)**:
   - `init_schema` — 4 tabelas de **dados**: `players` (jogador por email), `races`, `race_players` (resultado por jogador), `telemetry_points` (EEG). RLS ON.
   - `ingest_race_fn` + `fix_ingest_race` — função `ingest_race(jsonb)` transacional idempotente.
   - `claim_trigger` — `handle_email_confirmed`: vincula `players.user_id` quando o email é confirmado.
@@ -28,7 +28,8 @@ Projeto hospedado: ref **`wtaulbdkgrnrtbfezaxw`** · endpoint de ingest: `https:
   - `ranking_windows` — tabela de rodadas (leitura pública, sem sobreposição, escrita só por SQL/`service_role`) + `get_leaderboard(p_metric, p_limit, p_from, p_to)` com período e desempate por quem fez primeiro (NEU-110).
   - `player_phone` — NEU-159: `players.phone` (+55DDD9XXXXXXXX), `email` opcional (um dos dois), sai o `unique(user_id)` (conta com jogador do e-mail e do celular), `ingest_race` aceita `player_phone`, trigger `on_auth_phone_confirmed` (`handle_phone_confirmed`). Volta testada em `supabase/rollbacks/`: a ordem está no topo do `.down.sql` (função anterior primeiro, depois a parte A; o `.down-schema.sql` só com 0 jogadores de celular e 0 contas com 2 jogadores).
   - `telegram_subscriptions` — bot do Telegram (NEU-30): `telegram_subscriptions` (chat ↔ e-mail do estande, e-mail normalizado) e `telegram_notifications` (avisos já enviados, idempotência). **Só `service_role`**; o bot só manda aviso + link, nunca dados da corrida (LGPD).
-- **Tabelas:** `players, races, race_players, telemetry_points, profiles, ranking_windows, telegram_subscriptions, telegram_notifications`. **Funções:** `ingest_race, handle_email_confirmed, handle_phone_confirmed, handle_new_user_profile, get_leaderboard`.
+  - `premiacao` — NEU-167: `premiacao_config` (regras, começa desligada), `premiacao_rodadas` (rodada fechada no fim + carência; só conta corrida que chegou até o corte), `premios` (uma linha por vez de cada conta na rodada, código de 6 dígitos; a fila dá até `limite_fila` vezes entre os elegíveis; corrida abaixo de `piso_tempo_s` — 15 s, só por SQL — não concorre; índices únicos: um dono por rodada, um prêmio por conta no evento) e `premiacao_registro`. `premiacao_tick(p_agora)` roda no `pg_cron` (agendado à mão, ver o rollback). Leitura: `get_my_prize()` (só `authenticated`, o próprio) e `get_official_winners()` (público, sem contato). Tabelas e funções internas sem acesso de anon/authenticated. Volta testada em `supabase/rollbacks/`.
+- **Tabelas:** `players, races, race_players, telemetry_points, profiles, ranking_windows, telegram_subscriptions, telegram_notifications, premiacao_config, premiacao_rodadas, premios, premiacao_registro`. **Funções:** `ingest_race, handle_email_confirmed, handle_phone_confirmed, handle_new_user_profile, get_leaderboard, premiacao_tick, premiacao_registra_erro, premiacao_candidatos, premio_dar_vez, premio_passar, premio_novo_codigo, get_my_prize, get_official_winners`.
 
 ## Rodar local (precisa de Docker)
 ```bash
@@ -47,7 +48,7 @@ deno test supabase/functions/ingest-race/
 # Integração e2e (requer `supabase functions serve ingest-race --env-file supabase/functions/.env`)
 EDGE_INGEST_TOKEN=dev-only-change-me ./scripts/proof-ingest.sh
 ```
-Estado verde de referência (verificado 2026-10-21): **11 testes SQL OK + `36 passed | 0 failed` no Deno**. **Não declare concluído sem isso verde.**
+Estado verde de referência (verificado 2026-10-21): **13 testes SQL OK + `36 passed | 0 failed` no Deno**. **Não declare concluído sem isso verde.**
 
 ## Convenções (best practices deste repo)
 - **Migrations são aditivas** — não edite uma já aplicada em produção; crie uma nova (`supabase migration new <nome>`). Exceção: uma migration ainda **não** mergeada/deployada (PR aberto) pode ser editada in-place.
