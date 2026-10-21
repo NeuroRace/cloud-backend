@@ -15,6 +15,11 @@
 -- tambem a linha da migration:
 --   delete from supabase_migrations.schema_migrations where version = '20261021180000';
 
+-- RELIGAR depois da Parte A (no dia do evento): NAO reaplique a migration (falha em
+-- "premiacao_config already exists" e o db push nao age). Rode:
+--   psql -v ON_ERROR_STOP=1 -1 -f supabase/rollbacks/20261021180000_premiacao.reapply.sql
+-- (recria as funcoes com os mesmos grants e agenda o tick; premios e regras ficam).
+
 -- ===== Parte A =====
 do $$
 begin
