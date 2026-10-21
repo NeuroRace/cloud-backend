@@ -3,6 +3,27 @@
 -- Le premios/premiacao_config da NEU-167 e chama premio_passar ("Nao vou poder").
 -- Tudo nasce desligado (email_ligado = false, tipos_ligados vazio): sem ligar, nada sai.
 -- Volta: supabase/rollbacks/20261022090000_mensagens.down.sql.
+--
+-- Em prod, depois da migration (so com o ok do Pedro; nenhum segredo vai para o repo):
+--   1) secrets das funcoes (Dashboard > Edge Functions > Secrets): BREVO_API_KEY,
+--      MENSAGENS_REMETENTE (e-mail do dominio validado na Brevo, NEU-164), MENSAGENS_CRON_TOKEN,
+--      MENSAGENS_LINK_SECRET (aleatorio, >= 32 bytes) e SITE_URL (https://neurorace-v2.vercel.app);
+--      supabase functions deploy send-messages && supabase functions deploy message-actions
+--   2) o mesmo MENSAGENS_CRON_TOKEN no Vault, para o cron ler sem gravar o token no job:
+--      select vault.create_secret('<MENSAGENS_CRON_TOKEN>', 'mensagens_cron_token');
+--   3) agendar (NAO e feito aqui: o CI e quem aplica a migration nao ganham um job rodando):
+--      select cron.schedule('mensagens-envio', '* * * * *', $$
+--        select net.http_post(
+--          url := 'https://wtaulbdkgrnrtbfezaxw.supabase.co/functions/v1/send-messages',
+--          headers := jsonb_build_object('content-type', 'application/json', 'x-cron-token',
+--            (select decrypted_secret from vault.decrypted_secrets where name = 'mensagens_cron_token')),
+--          body := '{}'::jsonb, timeout_milliseconds := 30000) $$);
+--   4) ligar: update public.mensagens_config set email_ligado = true,
+--        tipos_ligados = array['premio_venceu', 'premio_lembrete', ...];
+--   Conferir: select estado, count(*) from public.mensagens group by 1;
+--             select * from net._http_response order by created desc limit 5;
+--   Voltar atras (leve): update public.mensagens_config set email_ligado = false;
+--                        ou select cron.unschedule('mensagens-envio');
 
 create extension if not exists pg_net;
 

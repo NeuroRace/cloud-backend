@@ -122,6 +122,19 @@ const { data: meus } = await supabase.rpc('get_my_prize')
 - Estados (`status`, snake_case): `avisado`, `prazo_estourou` (código ainda vale), `entregue`, `passou` (foi para outra conta), `recusado`, `cancelado`; `avisando`/`aviso_falhou` só quando houver canal de aviso (NEU-112).
 - As tabelas da premiação (`premiacao_config`, `premiacao_rodadas`, `premios`, `premiacao_registro`) **não** são lidas pelo site: só pelas funções acima.
 
+## 8.2 Links dos e-mails: "Parar de receber" e "Não vou poder" (NEU-112)
+Os e-mails da premiação trazem links para `https://<site>/mensagens?t=<token>`. O token é `base64url(JSON).assinatura`, com o JSON `{ a: 'sair' | 'recusar', m: <id da mensagem>, exp: <epoch em s> }` (sem e-mail nem telefone). O site pode ler `a` para escolher o texto, mas **quem valida é a função**. A página **só age no clique**: antivírus de e-mail abrem os links sozinhos.
+```ts
+// Sem login e sem apikey: o token assinado é a prova. CORS liberado só para SITE_URL.
+const r = await fetch(`${SUPABASE_URL}/functions/v1/message-actions`, {
+  method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ t }),
+})
+// 200 { ok: true, acao: 'sair' }
+// 200 { ok: true, acao: 'recusar', resultado: 'recusado' | 'ja_resolvido' | 'invalido' }
+// 403 { erro: 'assinatura' } (link alterado ou vencido: sair vale 90 dias, recusar 2 dias)
+// 404 { erro: 'nao_encontrada' } · 405 em GET · 500 { erro: 'falha_interna' }
+```
+
 ## 9. Limitações honestas (para não perderem tempo)
 - **Banco vazio até o edge gravar a 1ª corrida real.** Vocês conseguem montar UI, auth e queries agora; os dados aparecem quando uma corrida real fluir (e o usuário se cadastrar com o e-mail daquela corrida). Não há seed.
 - **Ranking mostra só quem tem `display_name` + corridas finalizadas.** Fica vazio enquanto os jogadores não tiverem escolhido um nome e não tiverem finalizadas corridas; é comportamento esperado.
