@@ -58,6 +58,179 @@ export type Database = {
         }
         Relationships: []
       }
+      premiacao_config: {
+        Row: {
+          carencia_min: number
+          evento_atual: string
+          id: boolean
+          janela_min: number
+          lembrete_min: number
+          ligada_em: string | null
+          limite_fila: number
+          passar_sozinho: boolean
+          pausa_geral: boolean
+          premiacao_ligada: boolean
+        }
+        Insert: {
+          carencia_min?: number
+          evento_atual?: string
+          id?: boolean
+          janela_min?: number
+          lembrete_min?: number
+          ligada_em?: string | null
+          limite_fila?: number
+          passar_sozinho?: boolean
+          pausa_geral?: boolean
+          premiacao_ligada?: boolean
+        }
+        Update: {
+          carencia_min?: number
+          evento_atual?: string
+          id?: boolean
+          janela_min?: number
+          lembrete_min?: number
+          ligada_em?: string | null
+          limite_fila?: number
+          passar_sozinho?: boolean
+          pausa_geral?: boolean
+          premiacao_ligada?: boolean
+        }
+        Relationships: []
+      }
+      premiacao_registro: {
+        Row: {
+          acao: string
+          antes: Json | null
+          depois: Json | null
+          detalhe: string | null
+          em: string
+          id: number
+          operador: string
+          premio_id: string | null
+          round_id: string | null
+        }
+        Insert: {
+          acao: string
+          antes?: Json | null
+          depois?: Json | null
+          detalhe?: string | null
+          em: string
+          id?: never
+          operador: string
+          premio_id?: string | null
+          round_id?: string | null
+        }
+        Update: {
+          acao?: string
+          antes?: Json | null
+          depois?: Json | null
+          detalhe?: string | null
+          em?: string
+          id?: never
+          operador?: string
+          premio_id?: string | null
+          round_id?: string | null
+        }
+        Relationships: []
+      }
+      premiacao_rodadas: {
+        Row: {
+          corte_em: string
+          evento: string
+          fechada_em: string
+          round_id: string
+        }
+        Insert: {
+          corte_em: string
+          evento: string
+          fechada_em: string
+          round_id: string
+        }
+        Update: {
+          corte_em?: string
+          evento?: string
+          fechada_em?: string
+          round_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "premiacao_rodadas_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: true
+            referencedRelation: "ranking_windows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      premios: {
+        Row: {
+          atualizado_em: string
+          code: string | null
+          criado_em: string
+          display_name: string
+          entregue_em: string | null
+          evento: string
+          id: string
+          motivo: string | null
+          posicao: number
+          prazo: string | null
+          race_player_id: string | null
+          round_id: string
+          score: number
+          status: string
+          user_id: string
+        }
+        Insert: {
+          atualizado_em: string
+          code?: string | null
+          criado_em: string
+          display_name: string
+          entregue_em?: string | null
+          evento: string
+          id?: string
+          motivo?: string | null
+          posicao: number
+          prazo?: string | null
+          race_player_id?: string | null
+          round_id: string
+          score: number
+          status: string
+          user_id: string
+        }
+        Update: {
+          atualizado_em?: string
+          code?: string | null
+          criado_em?: string
+          display_name?: string
+          entregue_em?: string | null
+          evento?: string
+          id?: string
+          motivo?: string | null
+          posicao?: number
+          prazo?: string | null
+          race_player_id?: string | null
+          round_id?: string
+          score?: number
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "premios_race_player_id_fkey"
+            columns: ["race_player_id"]
+            isOneToOne: false
+            referencedRelation: "race_players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "premios_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "premiacao_rodadas"
+            referencedColumns: ["round_id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -278,7 +451,62 @@ export type Database = {
           score: number
         }[]
       }
+      get_my_prize: {
+        Args: never
+        Returns: {
+          claim_deadline: string
+          code: string
+          delivered_at: string
+          round_name: string
+          status: string
+        }[]
+      }
+      get_official_winners: {
+        Args: never
+        Returns: {
+          display_name: string
+          round_id: string
+          round_name: string
+          score: number
+        }[]
+      }
       ingest_race: { Args: { payload: Json }; Returns: Json }
+      premiacao_candidatos: {
+        Args: { p_corte: string; p_round: string }
+        Returns: {
+          achieved_at: string
+          display_name: string
+          posicao: number
+          race_player_id: string
+          score: number
+          user_id: string
+        }[]
+      }
+      premiacao_registra_erro: {
+        Args: {
+          p_agora: string
+          p_detalhe: string
+          p_premio: string
+          p_round: string
+        }
+        Returns: undefined
+      }
+      premiacao_tick: { Args: { p_agora?: string }; Returns: Json }
+      premio_dar_vez: {
+        Args: { p_agora: string; p_round: string }
+        Returns: string
+      }
+      premio_novo_codigo: { Args: never; Returns: string }
+      premio_passar: {
+        Args: {
+          p_agora: string
+          p_motivo?: string
+          p_novo_status: string
+          p_operador: string
+          p_premio: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
