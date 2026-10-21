@@ -1,14 +1,22 @@
--- Volta da NEU-159 (20261021120000_player_phone.sql). NAO fica em migrations/: so roda a mao.
--- Rodar inteiro numa transacao: psql -v ON_ERROR_STOP=1 -1 -f <este arquivo>
+-- Volta da NEU-159 (20261021120000_player_phone.sql), parte A. NAO fica em migrations/: so roda a mao.
 --
--- Parte A (sempre segura): o estande volta a ser so e-mail. ingest_race volta a versao
--- anterior (fix_ingest_race) e o gatilho do celular sai. Envio com player_phone passa a
--- falhar (o contract.ts anterior recusa com 422 player_email_required; o edge guarda a
--- corrida em "Nao subiram"). Lembre de publicar tambem a versao anterior da ingest-race.
---
--- Parte B (so se NENHUM jogador tiver celular): desfaz o schema. Com jogador de celular,
--- ela para com erro de proposito e nada e desfeito (transacao). Nesse caso a volta segura e
--- so a Parte A: comente a Parte B e rode de novo. A coluna fica, nao atrapalha ninguem.
+-- ORDEM DA VOLTA (a ordem errada quebra o estande):
+--   1. O operador passa a pedir so e-mail no painel.
+--   2. PRIMEIRO republicar a ingest-race anterior (a de 29f0de3), com verify_jwt desligado:
+--        git worktree add ../cb-volta 29f0de3
+--        cd ../cb-volta && supabase functions deploy ingest-race --no-verify-jwt --project-ref wtaulbdkgrnrtbfezaxw
+--      (ou pelo MCP do Supabase, deploy_edge_function com os 3 arquivos de
+--      supabase/functions/ingest-race/ de 29f0de3 e verify_jwt: false).
+--      A anterior recusa player_phone com 422 player_email_required: o edge guarda a
+--      corrida em "Nao subiram", nada se perde. Se o passo 3 viesse antes, a funcao nova
+--      mandaria player_phone para a ingest_race antiga, que grava jogador sem e-mail e para
+--      no check players_email_or_phone: 500 em cada corrida de celular (testado em 21/10).
+--   3. So depois rodar ESTE arquivo (sempre seguro, mesmo com jogador de celular):
+--        psql "$DB" -v ON_ERROR_STOP=1 -1 -f supabase/rollbacks/20261021120000_player_phone.down.sql
+--      ingest_race volta a versao anterior (fix_ingest_race) e o gatilho do celular sai.
+--   4. Desfazer o schema (20261021120000_player_phone.down-schema.sql) so com 0 jogadores de
+--      celular e 0 contas com 2 jogadores. Nao precisa antes de sabado: a coluna phone e o
+--      email opcional nao atrapalham ninguem.
 
 -- ===== Parte A =====
 drop trigger if exists on_auth_phone_confirmed on auth.users;
@@ -81,15 +89,3 @@ begin
   return jsonb_build_object('status','created');
 end;
 $$;
-
--- ===== Parte B =====
-do $$ begin
-  if exists (select 1 from public.players where phone is not null) then
-    raise exception 'ha jogador com celular: rode so a Parte A (veja o topo do arquivo)';
-  end if;
-end $$;
-drop index if exists public.players_user_id_idx;
-alter table public.players add constraint players_user_id_key unique (user_id);
-alter table public.players drop constraint players_email_or_phone;
-alter table public.players alter column email set not null;
-alter table public.players drop column phone;
