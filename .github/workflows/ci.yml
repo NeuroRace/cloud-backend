@@ -52,5 +52,6 @@ jobs:
             psql "$DB" -v ON_ERROR_STOP=1 -f "$f"
           done
 
-      - name: Testes da Edge Function ingest-race (Deno)
-        run: deno test supabase/functions/ingest-race/
+      # Todas as funcoes: ingest-race, send-messages, message-actions e _shared (NEU-112).
+      - name: Testes das Edge Functions (Deno)
+        run: deno test supabase/functions/

@@ -415,3 +415,7 @@ enabled = true
 
 [functions.ingest-race]
 verify_jwt = false
+
+# NEU-112: chamada pelo pg_cron com x-cron-token (nao ha JWT de usuario).
+[functions.send-messages]
+verify_jwt = false
