@@ -69,7 +69,8 @@ const { data: telemetry } = await supabase
 - Não é possível ler dados de **outro** usuário (a RLS bloqueia — testado).
 
 ## 5. Modelo de dados (4 tabelas)
-- **`players`** — jogador canônico por e-mail. `user_id` liga à conta — é preenchido **automaticamente pelo trigger `on_auth_email_confirmed`** quando o usuário **confirma o e-mail** (vincula as corridas daquele e-mail à conta). Enquanto não confirma, fica `null` e a RLS não retorna nada para aquele usuário.
+- **`players`** — jogador canônico por **e-mail ou celular** (NEU-159: `email` e `phone` opcionais, pelo menos um; `phone` no formato `+5511987654321`). `user_id` liga à conta — é preenchido **automaticamente** quando o usuário **confirma o e-mail** (trigger `on_auth_email_confirmed`) ou **confirma o celular** por SMS (trigger `on_auth_phone_confirmed`; o Supabase guarda o celular sem o `+`, o trigger normaliza). Enquanto não confirma, fica `null` e a RLS não retorna nada para aquele usuário.
+  - **Uma conta pode ter dois jogadores** (o do e-mail e o do celular). As queries do §4 já trazem as corridas dos dois; o ranking mostra a pessoa uma vez, com o melhor tempo. Não use `.single()` em `players`.
 - **`races`** — a corrida (`id`, `started_at`). O fim é por-jogador (em `race_players`).
 - **`race_players`** — resultado de um jogador numa corrida (`player_slot` esperado 1|2, `started_at`, `finished_at`).
 - **`telemetry_points`** — amostras de EEG (`t`, `attention`, `meditation` — esperado 0..100, validado na ingestão, **sem CHECK no banco**; `poor_signal_level`, `signal_status`, `eeg_power` jsonb com as bandas do device).
