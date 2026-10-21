@@ -121,6 +121,7 @@ const { data: meus } = await supabase.rpc('get_my_prize')
 ```
 - Estados (`status`, snake_case): `avisado`, `prazo_estourou` (código ainda vale), `entregue`, `passou` (foi para outra conta), `recusado`, `cancelado`; `avisando`/`aviso_falhou` só quando houver canal de aviso (NEU-112).
 - As tabelas da premiação (`premiacao_config`, `premiacao_rodadas`, `premios`, `premiacao_registro`) **não** são lidas pelo site: só pelas funções acima.
+- **Painel de ops (`/operador`, NEU-168):** `op_painel()`, `op_validar_codigo(p_codigo)`, `op_acao(p_premio, p_acao, p_motivo?)` e `op_config(p_mudancas)`. Só para quem tem o e-mail confirmado na lista `operadores` (por SQL); outra conta recebe `42501`. Erro de negócio volta como `{"ok": false, "erro": "..."}` (em `op_acao`) e o contato já vem mascarado. Contrato completo no comentário da NEU-114 (21/10).
 
 ## 9. Limitações honestas (para não perderem tempo)
 - **Banco vazio até o edge gravar a 1ª corrida real.** Vocês conseguem montar UI, auth e queries agora; os dados aparecem quando uma corrida real fluir (e o usuário se cadastrar com o e-mail daquela corrida). Não há seed.
