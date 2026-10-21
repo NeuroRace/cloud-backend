@@ -37,20 +37,23 @@ export type Database = {
       players: {
         Row: {
           created_at: string
-          email: string
+          email: string | null
           id: string
+          phone: string | null
           user_id: string | null
         }
         Insert: {
           created_at?: string
-          email: string
+          email?: string | null
           id?: string
+          phone?: string | null
           user_id?: string | null
         }
         Update: {
           created_at?: string
-          email?: string
+          email?: string | null
           id?: string
+          phone?: string | null
           user_id?: string | null
         }
         Relationships: []
@@ -163,6 +166,56 @@ export type Database = {
           id?: string
           name?: string
           starts_at?: string
+        }
+        Relationships: []
+      }
+      telegram_notifications: {
+        Row: {
+          chat_id: number
+          kind: string
+          ref: string
+          sent_at: string
+        }
+        Insert: {
+          chat_id: number
+          kind: string
+          ref: string
+          sent_at?: string
+        }
+        Update: {
+          chat_id?: number
+          kind?: string
+          ref?: string
+          sent_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "telegram_notifications_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "telegram_subscriptions"
+            referencedColumns: ["chat_id"]
+          },
+        ]
+      }
+      telegram_subscriptions: {
+        Row: {
+          chat_id: number
+          created_at: string
+          email: string
+          updated_at: string
+        }
+        Insert: {
+          chat_id: number
+          created_at?: string
+          email: string
+          updated_at?: string
+        }
+        Update: {
+          chat_id?: number
+          created_at?: string
+          email?: string
+          updated_at?: string
         }
         Relationships: []
       }

@@ -120,3 +120,26 @@ Deno.test("finished_at before started_at falha", () => {
   const r = validateIngestBody({ ...valid, started_at: 2, finished_at: 1 });
   assertEquals(r.ok ? "" : r.error, "finished_at_before_started_at");
 });
+
+// NEU-159: player_phone como alternativa a player_email. Vem um dos dois.
+const { player_email: _e, ...noEmail } = valid;
+const phoneBody = { ...noEmail, player_phone: "+5511987654321" };
+Deno.test("so celular valido passa", () => assert(validateIngestBody(phoneBody).ok));
+Deno.test("celular com email vazio passa", () =>
+  assert(validateIngestBody({ ...phoneBody, player_email: "" }).ok));
+Deno.test("celular fora do formato falha", () => {
+  for (const phone of ["5511987654321", "+551198765432", "+5511387654321", "+5501987654321", "+1415555010000", "(11) 98765-4321", 11987654321]) {
+    const r = validateIngestBody({ ...phoneBody, player_phone: phone });
+    assertEquals(r.ok ? "" : r.error, "player_phone_invalid", String(phone));
+  }
+});
+Deno.test("nem email nem celular falha como hoje", () => {
+  const r = validateIngestBody(noEmail);
+  assertEquals(r.ok ? "" : r.error, "player_email_required");
+  const r2 = validateIngestBody({ ...noEmail, player_phone: null });
+  assertEquals(r2.ok ? "" : r2.error, "player_email_required");
+});
+Deno.test("email e celular juntos falha", () => {
+  const r = validateIngestBody({ ...phoneBody, player_email: "a@test.com" });
+  assertEquals(r.ok ? "" : r.error, "player_email_and_phone_both");
+});
