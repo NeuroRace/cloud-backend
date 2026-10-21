@@ -248,6 +248,20 @@ begin
   update public.premiacao_config set evento_atual = 'TESTE';
 end $$;
 
+-- prazo estourado e ninguem passou: o codigo ainda vale e o operador entrega (duvida do Pedro, 21/10)
+select pg_temp.limpa();
+do $$
+declare r jsonb; cx text;
+begin
+  perform public.premiacao_tick('2020-06-01 15:05+00');
+  cx := (select code from pg_temp.dono());
+  perform public.premiacao_tick('2020-06-01 15:21+00');
+  assert (select status from pg_temp.dono()) = 'prazo_estourou', 'prazo estourou';
+  r := public.premiacao_op_validar('op@neu168.test', cx, '2020-06-01 15:25+00');
+  assert r->>'resultado' = 'entregue' and (select status from pg_temp.dono()) = 'entregue',
+    'AC3: codigo de prazo estourado ainda vale ate o operador passar, veio ' || r::text;
+end $$;
+
 -- entregue sem codigo
 select pg_temp.limpa();
 do $$
