@@ -7,7 +7,8 @@
 -- Seed (UTC), evento 'TESTE', premiacao ligada em 2020-01-01:
 --   R0 2019-12-31 10:00-11:00 (antes de ligada_em)
 --   R1 2020-06-01 14:00-15:00: A 40,1 s (14:30) | A pelo celular 40,5 s (14:50) | B 41,0 s (14:40)
---                              D 42 s | E 43 s | F 44 s | C 39 s terminou 14:59 e CHEGOU 15:06
+--                              D 42 s | E 43 s | F 44 s | G 45 s | C 39 s terminou 14:59 e CHEGOU 15:06
+--                              D 0,45 s (14:55): abaixo do piso de tempo (NEU-179), nao vale
 --   R2 2020-06-01 15:00-16:00: B 30 s | A 31 s | C 32 s
 --   R3 2020-06-01 16:00-17:00: so um jogador sem conta (ligado a conta depois do fechamento)
 
@@ -43,6 +44,7 @@ insert into public.players (id, email, phone, user_id) values
  ('67b00000-0000-0000-0000-00000000000d','pr_d@neu167.test', null,'67a00000-0000-0000-0000-00000000000d'),
  ('67b00000-0000-0000-0000-00000000000e','pr_e@neu167.test', null,'67a00000-0000-0000-0000-00000000000e'),
  ('67b00000-0000-0000-0000-00000000000f','pr_f@neu167.test', null,'67a00000-0000-0000-0000-00000000000f'),
+ ('67b00000-0000-0000-0000-000000000010','pr_g@neu167.test', null,'67a00000-0000-0000-0000-000000000010'),
  ('67b00000-0000-0000-0000-000000000099','pr_semconta@neu167.test', null, null);
 
 insert into public.ranking_windows (id, name, starts_at, ends_at) values
@@ -70,6 +72,8 @@ select pg_temp.corrida(14,'67b00000-0000-0000-0000-00000000000d',42.0,'2020-06-0
 select pg_temp.corrida(15,'67b00000-0000-0000-0000-00000000000e',43.0,'2020-06-01 14:42+00','2020-06-01 14:42+00');
 select pg_temp.corrida(16,'67b00000-0000-0000-0000-00000000000f',44.0,'2020-06-01 14:43+00','2020-06-01 14:43+00');
 select pg_temp.corrida(17,'67b00000-0000-0000-0000-00000000000c',39.0,'2020-06-01 14:59+00','2020-06-01 15:06+00');
+select pg_temp.corrida(18,'67b00000-0000-0000-0000-000000000010',45.0,'2020-06-01 14:44+00','2020-06-01 14:44+00');
+select pg_temp.corrida(19,'67b00000-0000-0000-0000-00000000000d', 0.45,'2020-06-01 14:55+00','2020-06-01 14:55+00');
 select pg_temp.corrida(21,'67b00000-0000-0000-0000-00000000000b',30.0,'2020-06-01 15:30+00','2020-06-01 15:30+00');
 select pg_temp.corrida(22,'67b00000-0000-0000-0000-00000000000a',31.0,'2020-06-01 15:31+00','2020-06-01 15:31+00');
 select pg_temp.corrida(23,'67b00000-0000-0000-0000-00000000000c',32.0,'2020-06-01 15:32+00','2020-06-01 15:32+00');
@@ -80,7 +84,7 @@ create function pg_temp.limpa() returns void language sql as $$
   delete from public.premios;
   delete from public.premiacao_rodadas;
   delete from public.premiacao_registro;
-  update public.premiacao_config set passar_sozinho = false, pausa_geral = false, limite_fila = 5,
+  update public.premiacao_config set passar_sozinho = false, pausa_geral = false, limite_fila = 5, piso_tempo_s = 15,
     premiacao_ligada = true, ligada_em = '2020-01-01 00:00+00', evento_atual = 'TESTE';
 $$;
 
@@ -118,6 +122,13 @@ begin
            where user_id = '67a00000-0000-0000-0000-00000000000a') = 40.1, 'AC5: vale a melhor corrida da conta';
 
   perform public.premiacao_tick('2020-06-01 15:05+00');
+  assert (select piso_tempo_s from public.premiacao_config) = 15, 'piso: padrao de 15 s';
+  assert not exists (select 1 from public.premiacao_candidatos('67c00000-0000-0000-0000-000000000001', '2020-06-01 15:05+00')
+                      where score < 15), 'piso: corrida de 0,45 s (NEU-179) nao entra';
+  assert (select score from public.premiacao_candidatos('67c00000-0000-0000-0000-000000000001', '2020-06-01 15:05+00')
+           where user_id = '67a00000-0000-0000-0000-00000000000d') = 42,
+    'piso: D continua concorrendo com a corrida valida (42 s)';
+
   perform public.premiacao_tick('2020-06-01 15:06+00');
   assert (select count(*) from public.premios) = 1, 'AC14: tick repetido nao duplica premio';
   assert (select count(*) from public.premiacao_rodadas) = 1, 'AC14: tick repetido nao duplica fechamento';
@@ -208,6 +219,31 @@ begin
     assert (select user_id from pg_temp.dono('67c00000-0000-0000-0000-000000000002')) = '67a00000-0000-0000-0000-00000000000b',
       'AC13/D4: com B em ' || s || ' na R1, B volta a poder ganhar a R2';
   end loop;
+end $$;
+
+-- ===== limite da fila = 5 vezes entre os ELEGIVEIS (revisao do #15) =====
+-- Os 5 primeiros da R1 (A, B, D, E, F) ja ganharam no evento -> o 6o (G) ganha, na 1a vez.
+select pg_temp.limpa();
+do $$
+declare d record;
+begin
+  -- uma rodada antiga por premio (um dono por rodada)
+  insert into public.ranking_windows (id, name, starts_at, ends_at)
+  select ('67c10000-0000-0000-0000-00000000000' || i)::uuid, 'P167 Antiga ' || i,
+         '2019-11-01 00:00+00'::timestamptz + make_interval(hours => i), '2019-11-01 00:30+00'::timestamptz + make_interval(hours => i)
+  from generate_series(1, 5) as i;
+  insert into public.premiacao_rodadas (round_id, evento, fechada_em, corte_em)
+  select ('67c10000-0000-0000-0000-00000000000' || i)::uuid, 'TESTE', '2019-11-02 00:00+00', '2019-11-02 00:00+00'
+  from generate_series(1, 5) as i;
+  insert into public.premios (round_id, evento, user_id, posicao, display_name, score, status, entregue_em, criado_em, atualizado_em)
+  select ('67c10000-0000-0000-0000-00000000000' || x.i)::uuid, 'TESTE', x.u, 1, 'x', 20, 'entregue',
+         '2019-11-02 00:10+00', '2019-11-02 00:00+00', '2019-11-02 00:10+00'
+  from unnest(array['67a00000-0000-0000-0000-00000000000a','67a00000-0000-0000-0000-00000000000b','67a00000-0000-0000-0000-00000000000d',
+                    '67a00000-0000-0000-0000-00000000000e','67a00000-0000-0000-0000-00000000000f']::uuid[]) with ordinality as x(u, i);
+  perform public.premiacao_tick('2020-06-01 15:05+00');
+  select * into d from pg_temp.dono('67c00000-0000-0000-0000-000000000001');
+  assert d.user_id = '67a00000-0000-0000-0000-000000000010', 'limite: com os 5 primeiros ja premiados, o 6o (G) ganha; veio ' || coalesce(d.user_id::text, 'ninguem');
+  assert d.posicao = 1, 'limite: posicao e a vez na fila (1a), nao a colocacao; veio ' || d.posicao;
 end $$;
 
 -- ===== AC4: premio em outro evento nao conta =====

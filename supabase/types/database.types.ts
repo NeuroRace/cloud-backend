@@ -69,6 +69,7 @@ export type Database = {
           limite_fila: number
           passar_sozinho: boolean
           pausa_geral: boolean
+          piso_tempo_s: number
           premiacao_ligada: boolean
         }
         Insert: {
@@ -81,6 +82,7 @@ export type Database = {
           limite_fila?: number
           passar_sozinho?: boolean
           pausa_geral?: boolean
+          piso_tempo_s?: number
           premiacao_ligada?: boolean
         }
         Update: {
@@ -93,6 +95,7 @@ export type Database = {
           limite_fila?: number
           passar_sozinho?: boolean
           pausa_geral?: boolean
+          piso_tempo_s?: number
           premiacao_ligada?: boolean
         }
         Relationships: []

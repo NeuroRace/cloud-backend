@@ -41,6 +41,11 @@ begin
                    where pp.oid = t::regprocedure and a.grantee = 'service_role'::regrole and a.privilege_type = 'EXECUTE'),
       format('service_role precisa de EXECUTE explicito em %s', t);
   end loop;
+  foreach r in array array['anon','authenticated'] loop
+    foreach p in array array['USAGE','SELECT','UPDATE'] loop
+      assert not has_sequence_privilege(r, 'public.premiacao_registro_id_seq', p), format('AC11: %s nao pode %s na sequencia do registro', r, p);
+    end loop;
+  end loop;
   assert not has_function_privilege('anon', 'public.get_my_prize()', 'EXECUTE'), 'AC11: anon nao chama get_my_prize';
   assert not has_function_privilege('public', 'public.get_my_prize()', 'EXECUTE'), 'AC11: public nao chama get_my_prize';
   assert has_function_privilege('authenticated', 'public.get_my_prize()', 'EXECUTE'), 'AC11: authenticated chama get_my_prize';

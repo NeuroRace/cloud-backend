@@ -24,6 +24,9 @@ create table public.premiacao_config (
   limite_fila      int         not null default 5  check (limite_fila between 1 and 50),
   passar_sozinho   boolean     not null default false,
   pausa_geral      boolean     not null default false,
+  -- Corrida mais curta que isto nao concorre ao premio (NEU-179: chegada atrasada com 0,45 s).
+  -- Fora do op_config/op_painel de proposito (contrato do site); muda por SQL.
+  piso_tempo_s     numeric     not null default 15 check (piso_tempo_s >= 0),
   constraint premiacao_config_ligada_tem_hora check (not premiacao_ligada or ligada_em is not null)
 );
 insert into public.premiacao_config default values;
@@ -45,7 +48,7 @@ create table public.premios (
   round_id       uuid        not null references public.premiacao_rodadas (round_id),
   evento         text        not null,
   user_id        uuid        not null references auth.users (id) on delete cascade,
-  posicao        int         not null check (posicao >= 1),    -- posicao na rodada (fila)
+  posicao        int         not null check (posicao >= 1),    -- vez na fila da rodada (1a, 2a...)
   display_name   text        not null,                          -- apelido no congelamento
   score          numeric     not null,                          -- tempo em segundos, como get_leaderboard
   race_player_id uuid        references public.race_players (id) on delete set null,
@@ -95,10 +98,11 @@ revoke all on public.premiacao_config, public.premiacao_rodadas, public.premios,
   from anon, authenticated;
 grant select, insert, update, delete on public.premiacao_config, public.premiacao_rodadas, public.premios,
   public.premiacao_registro to service_role;
+revoke all on sequence public.premiacao_registro_id_seq from anon, authenticated;
 
 -- (5) Candidatos de uma rodada, na ordem do get_leaderboard: por conta, a menor duracao e,
 -- empatando, quem terminou primeiro. So conta com apelido, so source='real', so corrida
--- que chegou ate o corte.
+-- que chegou ate o corte e que dura pelo menos o piso de tempo.
 create function public.premiacao_candidatos(p_round uuid, p_corte timestamptz)
 returns table (user_id uuid, display_name text, score numeric, achieved_at timestamptz, race_player_id uuid, posicao int)
 language sql
@@ -122,6 +126,7 @@ as $$
       and pr.display_name is not null
       and rp.source = 'real'
       and rp.finished_at > rp.started_at
+      and extract(epoch from (rp.finished_at - rp.started_at)) >= (select c.piso_tempo_s from premiacao_config c)
       and rp.created_at <= p_corte
     order by pr.id, (rp.finished_at - rp.started_at) asc, rp.finished_at asc
   ) b
@@ -148,7 +153,9 @@ begin
 end;
 $$;
 
--- (7) Da a vez ao proximo elegivel da rodada (ate limite_fila). Elegivel: conta sem premio
+-- (7) Da a vez ao proximo elegivel da rodada, na ordem do ranking. limite_fila conta as VEZES
+-- dadas na rodada (ate o 5o elegivel), nao a colocacao: quem ja ganhou e pulado sem gastar vez.
+-- Elegivel: conta sem premio
 -- valendo no evento (D2) e que ainda nao teve a vez nesta rodada; recusado/passou em outra
 -- rodada volta a valer (D4). Sem canal de aviso (D3), nasce avisado e a janela comeca agora.
 -- Devolve o id do premio novo, ou null se a fila acabou.
@@ -162,16 +169,21 @@ declare
   rod  premiacao_rodadas;
   c    record;
   v_id uuid;
+  v_vez int;
 begin
   -- Mesma trava do tick e das acoes do operador: duas entradas nunca escolhem a mesma conta.
   perform pg_advisory_xact_lock(hashtext('neurorace_premiacao'));
   select * into cfg from premiacao_config;
   select * into rod from premiacao_rodadas where round_id = p_round;
 
+  select count(*) + 1 into v_vez from premios where round_id = p_round;
+  if v_vez > cfg.limite_fila then
+    return null;
+  end if;
+
   select k.* into c
   from premiacao_candidatos(p_round, rod.corte_em) k
-  where k.posicao <= cfg.limite_fila
-    and not exists (select 1 from premios x where x.round_id = p_round and x.user_id = k.user_id)
+  where not exists (select 1 from premios x where x.round_id = p_round and x.user_id = k.user_id)
     and not exists (select 1 from premios x
                     where x.evento = rod.evento and x.user_id = k.user_id
                       and x.status in ('avisando', 'avisado', 'prazo_estourou', 'aviso_falhou', 'entregue'))
@@ -184,13 +196,13 @@ begin
 
   insert into premios (round_id, evento, user_id, posicao, display_name, score, race_player_id,
                        status, code, prazo, criado_em, atualizado_em)
-  values (p_round, rod.evento, c.user_id, c.posicao, c.display_name, c.score, c.race_player_id,
+  values (p_round, rod.evento, c.user_id, v_vez, c.display_name, c.score, c.race_player_id,
           'avisado', premio_novo_codigo(), p_agora + make_interval(mins => cfg.janela_min), p_agora, p_agora)
   returning id into v_id;
 
   insert into premiacao_registro (em, operador, acao, round_id, premio_id, detalhe)
   values (p_agora, 'automacao', 'deu_a_vez', p_round, v_id,
-          format('%s (%sº) ficou com o premio', c.display_name, c.posicao));
+          format('%s (%sº no ranking, %sª vez) ficou com o premio', c.display_name, c.posicao, v_vez));
   return v_id;
 end;
 $$;

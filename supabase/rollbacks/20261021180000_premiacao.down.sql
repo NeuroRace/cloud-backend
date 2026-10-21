@@ -9,8 +9,10 @@
 -- get_my_prize e get_official_winners somem (PGRST202), o cartao do premio nao aparece e o
 -- letreiro do telao volta ao 1o ao vivo. As tabelas e os premios ficam guardados.
 --
--- Parte B (apaga os premios): so se ninguem precisar mais deles. Comente se for so a Parte A.
--- Depois de rodar a Parte B em prod, apague tambem a linha da migration:
+-- Parte B (APAGA premios e codigos, inclusive os ja entregues): fica COMENTADA de proposito,
+-- para ninguem destruir premio com pressa no dia. Rodar este arquivo inteiro = so a Parte A.
+-- Para apagar tudo, descomente as 4 linhas da Parte B e rode de novo. Depois, em prod, apague
+-- tambem a linha da migration:
 --   delete from supabase_migrations.schema_migrations where version = '20261021180000';
 
 -- ===== Parte A =====
@@ -31,8 +33,8 @@ drop function if exists public.premio_dar_vez(uuid, timestamptz);
 drop function if exists public.premio_novo_codigo();
 drop function if exists public.premiacao_candidatos(uuid, timestamptz);
 
--- ===== Parte B =====
-drop table if exists public.premiacao_registro;
-drop table if exists public.premios;
-drop table if exists public.premiacao_rodadas;
-drop table if exists public.premiacao_config;
+-- ===== Parte B (comentada) =====
+-- drop table if exists public.premiacao_registro;
+-- drop table if exists public.premios;
+-- drop table if exists public.premiacao_rodadas;
+-- drop table if exists public.premiacao_config;
