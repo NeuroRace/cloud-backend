@@ -244,7 +244,7 @@ otp_expiry = 3600
 # sender_name = "Admin"
 
 # NEU-162: modelos com código ({{ .Token }}) e link com token_hash para /auth/confirm.
-# Em prod são aplicados por scripts/auth-config.sh; aqui valem para o Supabase local.
+# Em prod são colados no painel (Authentication → Emails), com backup antes; aqui valem para o Supabase local.
 [auth.email.template.confirmation]
 subject = "Seu código para entrar no NeuroRace"
 content_path = "./supabase/templates/confirmation.html"
@@ -254,7 +254,7 @@ subject = "Seu código para entrar no NeuroRace"
 content_path = "./supabase/templates/magic_link.html"
 
 [auth.email.template.email_change]
-subject = "Confirme o e-mail da sua conta NeuroRace"
+subject = "Confirme a troca de e-mail da sua conta NeuroRace"
 content_path = "./supabase/templates/email_change.html"
 
 # Uncomment to customize email template
