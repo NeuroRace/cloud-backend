@@ -252,9 +252,13 @@ $$;
 
 -- (9) O passo da automacao, chamado pelo pg_cron a cada minuto. O horario entra por parametro
 -- (os testes nunca usam now()). Desligada ou em pausa geral: nao muda nada.
+-- security definer: roda como o dono (igual ao cron), seja quem for que chame. Quem pode chamar
+-- e so o service_role (revoke abaixo); assim o tick nao depende dos grants de cada ambiente
+-- (no CI o service_role nao le profiles).
 create function public.premiacao_tick(p_agora timestamptz default now())
 returns jsonb
 language plpgsql
+security definer
 set search_path = public
 as $$
 declare
