@@ -80,9 +80,10 @@ end $$;
 
 -- ===== Pronto 2: duas corridas em 10 min -> um aviso, com a melhor =====
 do $$
-declare m public.mensagens;
+declare m public.mensagens; r jsonb;
 begin
-  perform public.avisos_corrida_tick('2020-06-01 12:10+00');
+  r := public.avisos_corrida_tick('2020-06-01 12:10+00');
+  assert (r ->> 'erros')::int = 0, 'tick sem erros, veio ' || r::text;
   assert (select count(*) from pg_temp.msgs('av_a@neu170.test')) = 1, 'Pronto 2: um aviso so para A';
   select * into m from pg_temp.msgs('av_a@neu170.test');
   assert m.tipo = 'corrida_registrada' and m.canal = 'email' and m.estado = 'pendente', 'Pronto 2: aviso de corrida por e-mail';
