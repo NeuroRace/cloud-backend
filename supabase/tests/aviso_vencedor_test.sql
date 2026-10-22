@@ -79,7 +79,7 @@ end $$;
 do $$
 declare b public.premios;
 begin
-  perform public.premio_passar(pg_temp.premio_de('11280000-0000-0000-0000-00000000000a').id, 'recusado',
+  perform public.premio_passar((pg_temp.premio_de('11280000-0000-0000-0000-00000000000a')).id, 'recusado',
                                '2020-06-01 11:10+00', 'teste', 'Nao vou poder');
   b := pg_temp.premio_de('11280000-0000-0000-0000-00000000000b');
   assert b.status = 'avisado', 'seed: B tem a vez';
@@ -93,9 +93,9 @@ end $$;
 do $$
 declare r jsonb;
 begin
-  perform public.premio_passar(pg_temp.premio_de('11280000-0000-0000-0000-00000000000b').id, 'recusado',
+  perform public.premio_passar((pg_temp.premio_de('11280000-0000-0000-0000-00000000000b')).id, 'recusado',
                                '2020-06-01 11:12+00', 'teste', 'Nao vou poder');
-  assert pg_temp.premio_de('11280000-0000-0000-0000-00000000000c').status = 'avisado', 'seed: C tem a vez';
+  assert (pg_temp.premio_de('11280000-0000-0000-0000-00000000000c')).status = 'avisado', 'seed: C tem a vez';
   r := public.avisos_premio_tick('2020-06-01 11:13+00');
   assert (r ->> 'erros')::int = 0 and (r ->> 'sem_contato')::int = 1, 'C sem e-mail confirmado: sem_contato; veio ' || r::text;
   assert not exists (select 1 from pg_temp.avisos('vv_c@neu112.test')), 'C nao recebe';
