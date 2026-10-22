@@ -75,6 +75,50 @@ begin
   assert (select count(*) from pg_temp.avisos('vv_a@neu112.test')) = 1, 'tick repetido: um aviso so';
 end $$;
 
+-- ===== Revisao do #21: o prazo muda ("+10 min" do operador) antes de o e-mail sair =====
+do $$
+declare a uuid := (pg_temp.premio_de('11280000-0000-0000-0000-00000000000a')).id; m public.mensagens;
+begin
+  update public.mensagens_config set email_ligado = true, tipos_ligados = array['premio_venceu'];
+
+  -- 1) Pendente: a validade e o texto acompanham o prazo novo, e continua um aviso so.
+  update public.premios set prazo = '2020-06-01 11:30+00' where id = a;
+  perform public.avisos_premio_tick('2020-06-01 11:08+00');
+  assert (select count(*) from pg_temp.avisos('vv_a@neu112.test')) = 1, 'prazo novo: continua um aviso so';
+  select * into m from pg_temp.avisos('vv_a@neu112.test');
+  assert m.estado = 'pendente' and m.validade = '2020-06-01 11:30+00', 'pendente: validade = prazo novo, veio ' || m.validade;
+  assert m.corpo_texto like '%até 08:30 e mostre%', 'pendente: texto com a hora nova, veio ' || m.corpo_texto;
+
+  -- 2) Expirou pela validade antiga antes do tick, com o premio ainda valendo: volta a pendente.
+  perform public.mensagens_preparar('email', '2020-06-01 11:30+00', 0);
+  assert (select estado from public.mensagens where id = m.id) = 'expirada', 'seed: a validade antiga venceu';
+  update public.premios set prazo = '2020-06-01 11:40+00' where id = a;
+  perform public.avisos_premio_tick('2020-06-01 11:31+00');
+  select * into m from public.mensagens where id = m.id;
+  assert m.estado = 'pendente' and m.validade = '2020-06-01 11:40+00' and m.corpo_texto like '%até 08:40 e mostre%',
+    'expirada com o premio valendo: volta com o prazo novo; veio ' || m.estado || ' ' || m.corpo_texto;
+
+  -- 3) Cancelada porque o prazo estourou, e o operador deu +10 min (o premio volta a avisado): volta.
+  update public.premios set status = 'prazo_estourou' where id = a;
+  perform public.mensagens_preparar('email', '2020-06-01 11:32+00', 0);
+  assert (select estado from public.mensagens where id = m.id) = 'cancelada', 'seed: prazo estourado cancela o aviso';
+  update public.premios set status = 'avisado', prazo = '2020-06-01 11:50+00' where id = a;
+  perform public.avisos_premio_tick('2020-06-01 11:41+00');
+  select * into m from public.mensagens where id = m.id;
+  assert m.estado = 'pendente' and m.validade = '2020-06-01 11:50+00' and m.corpo_texto like '%até 08:50 e mostre%',
+    'cancelada pelo prazo e +10 min: volta; veio ' || m.estado;
+
+  -- 4) Ja enviada: nao mexe (o e-mail saiu) e nao manda outro.
+  update public.mensagens set estado = 'enviada', enviada_em = '2020-06-01 11:42+00' where id = m.id;
+  update public.premios set prazo = '2020-06-01 12:00+00' where id = a;
+  perform public.avisos_premio_tick('2020-06-01 11:43+00');
+  select * into m from public.mensagens where id = m.id;
+  assert m.estado = 'enviada' and m.corpo_texto like '%até 08:50 e mostre%', 'enviada: nao muda';
+  assert (select count(*) from pg_temp.avisos('vv_a@neu112.test')) = 1, 'enviada: nao manda outro';
+
+  update public.mensagens_config set email_ligado = false, tipos_ligados = '{}';
+end $$;
+
 -- ===== O premio passa: o proximo recebe o aviso dele, com o codigo novo =====
 do $$
 declare b public.premios;
