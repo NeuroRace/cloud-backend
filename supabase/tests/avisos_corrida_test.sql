@@ -88,7 +88,7 @@ begin
   select * into m from pg_temp.msgs('av_a@neu170.test');
   assert m.tipo = 'corrida_registrada' and m.canal = 'email' and m.estado = 'pendente', 'Pronto 2: aviso de corrida por e-mail';
   assert m.corpo_texto = 'Sua corrida no NeuroRace foi registrada: 40,1' || chr(160) || 's, 2º na C170 Rodada 1. '
-                        || 'Veja seu card e seu arquétipo em https://neurorace-v2.vercel.app/dashboard.',
+                        || 'Veja seu card e seu arquétipo: https://neurorace-v2.vercel.app/dashboard',
     'Pronto 2: texto 5 com a melhor (40,1 s) e a posicao, veio ' || m.corpo_texto;
   assert m.assunto = 'Sua corrida no NeuroRace foi registrada', 'assunto do texto 5';
   assert m.user_id = '17000000-0000-0000-0000-00000000000a', 'aviso ligado a conta';
@@ -161,7 +161,7 @@ begin
   perform public.avisos_corrida_tick('2020-06-01 13:15+00');
   assert (select corpo_texto from pg_temp.msgs('av_a@neu170.test') offset 2)
        = 'Sua corrida no NeuroRace foi registrada: 50,0' || chr(160) || 's. '
-         || 'Veja seu card e seu arquétipo em https://neurorace-v2.vercel.app/dashboard.',
+         || 'Veja seu card e seu arquétipo: https://neurorace-v2.vercel.app/dashboard',
     'Revisao 12: sem posicao quando a corrida nao e a melhor da rodada, veio '
       || coalesce((select corpo_texto from pg_temp.msgs('av_a@neu170.test') offset 2), 'nada');
 end $$;

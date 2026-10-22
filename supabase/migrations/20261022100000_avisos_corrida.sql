@@ -158,7 +158,8 @@ begin
     v_texto := 'Sua corrida no NeuroRace foi registrada: '
       || mensagem_formata_tempo(extract(epoch from (melhor.finished_at - melhor.started_at))::numeric)
       || case when v_pos is not null then ', ' || v_pos || 'º na ' || v_rodada else '' end
-      || '. Veja seu card e seu arquétipo em ' || cfg.site_url || '/dashboard.';
+      -- O link fica no fim, sem ponto colado: alguns clientes de e-mail levam o ponto para a URL.
+      || '. Veja seu card e seu arquétipo: ' || cfg.site_url || '/dashboard';
   else
     -- Sem conta: o contato digitado no estande nao foi confirmado; vai so o convite,
     -- sem tempo nem posicao (texto 6 da NEU-165).
