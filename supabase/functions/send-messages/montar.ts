@@ -5,6 +5,7 @@ import type { EmailMontado } from "./brevo.ts";
 
 export type MensagemFila = {
   id: string;
+  envio_id: string; // dono da trava, vem do mensagens_preparar
   tipo: string;
   destino: string;
   assunto: string;
@@ -24,9 +25,10 @@ function escapar(s: string): string {
 
 export async function montar(m: MensagemFila, cfg: ConfigMontar): Promise<EmailMontado> {
   const sair = await assinar(cfg.segredo, { a: "sair", m: m.id, exp: cfg.agoraSeg + EXPIRA_SAIR_S });
-  const sairUrl = `${cfg.siteUrl}/mensagens?t=${sair}`;
+  const site = cfg.siteUrl.replace(/\/+$/, "");
+  const sairUrl = `${site}/mensagens?t=${sair}`;
   const recusarUrl = TIPOS_COM_RECUSAR.has(m.tipo) && m.premio_id
-    ? `${cfg.siteUrl}/mensagens?t=${await assinar(cfg.segredo, { a: "recusar", m: m.id, exp: cfg.agoraSeg + EXPIRA_RECUSAR_S })}`
+    ? `${site}/mensagens?t=${await assinar(cfg.segredo, { a: "recusar", m: m.id, exp: cfg.agoraSeg + EXPIRA_RECUSAR_S })}`
     : null;
 
   const rodapeTexto = [

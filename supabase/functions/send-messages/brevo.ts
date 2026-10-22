@@ -8,14 +8,18 @@ export type EmailMontado = {
   texto: string;
   cancelarInscricaoUrl: string;
 };
-export type ResultadoEnvio = { ok: true; id: string } | { ok: false; erro: string; definitivo: boolean };
+// sistema: o problema e nosso (chave errada ou revogada), nao da mensagem. Quem chama para o lote
+// e solta as mensagens, sem gastar tentativa.
+export type ResultadoEnvio =
+  | { ok: true; id: string }
+  | { ok: false; erro: string; definitivo: boolean; sistema?: boolean };
 
 const URL_BREVO = "https://api.brevo.com/v3/smtp/email";
 const TIMEOUT_MS = 10_000;
 
 /**
- * 201 -> ok. 400 -> definitivo (dado invalido nao melhora tentando de novo). Resto (401/403/429/5xx,
- * rede, timeout) -> temporario. O erro so leva o status e o codigo da Brevo: nunca a chave nem o destino.
+ * 201 -> ok. 400 -> definitivo (dado invalido nao melhora tentando de novo). 401/403 -> sistema
+ * (chave errada: nao e culpa da mensagem). Resto (429/5xx, rede, timeout) -> temporario. O erro so leva o status e o codigo da Brevo: nunca a chave nem o destino.
  */
 export async function enviarBrevo(
   fetchFn: typeof fetch, apiKey: string, remetente: string, e: EmailMontado,
@@ -48,5 +52,8 @@ export async function enviarBrevo(
   }
   const corpo = await resp.json().catch(() => null);
   const codigo = typeof corpo?.code === "string" && /^[a-z_]{1,40}$/.test(corpo.code) ? ` ${corpo.code}` : "";
+  if (resp.status === 401 || resp.status === 403) {
+    return { ok: false, erro: `brevo ${resp.status}${codigo}`, definitivo: false, sistema: true };
+  }
   return { ok: false, erro: `brevo ${resp.status}${codigo}`, definitivo: resp.status === 400 };
 }

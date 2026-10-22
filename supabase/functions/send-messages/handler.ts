@@ -25,7 +25,9 @@ export function criarHandler(d: DepsHandler): (req: Request) => Promise<Response
     }
     try {
       const resumo = await d.rodar();
-      console.log(JSON.stringify({ level: "info", event: "send_messages_ok", ...resumo }));
+      // Erro de sistema (chave da Brevo errada): nada sai ate alguem corrigir o secret.
+      const level = resumo.erroSistema ? "error" : "info";
+      console.log(JSON.stringify({ level, event: "send_messages_ok", ...resumo }));
       return json(200, resumo);
     } catch (err) {
       console.log(JSON.stringify({

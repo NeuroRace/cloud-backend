@@ -10,6 +10,7 @@ const CFG = {
 };
 const BASE: MensagemFila = {
   id: "11200000-0000-0000-0000-000000000001",
+  envio_id: "11200000-0000-0000-0000-0000000000e1",
   tipo: "corrida_registrada",
   destino: "ana@neu112.test",
   assunto: "Sua corrida no NeuroRace foi registrada",
@@ -67,6 +68,12 @@ Deno.test("com corpo_html: usa o html de quem enfileirou e acrescenta o rodape",
   const e = await montar({ ...BASE, corpo_html: "<p><b>Corrida</b> registrada</p>" }, CFG);
   assert(e.html.startsWith("<p><b>Corrida</b> registrada</p>"));
   assertStringIncludes(e.html, "Para não receber mais e-mails do NeuroRace");
+});
+
+Deno.test("Revisao 8: SITE_URL com barra no fim nao gera //mensagens", async () => {
+  const e = await montar(BASE, { ...CFG, siteUrl: "https://neurorace-v2.vercel.app/" });
+  assertStringIncludes(e.texto, "https://neurorace-v2.vercel.app/mensagens?t=");
+  assertFalse(e.texto.includes("app//mensagens"));
 });
 
 Deno.test("nenhuma URL leva o e-mail do destino", async () => {

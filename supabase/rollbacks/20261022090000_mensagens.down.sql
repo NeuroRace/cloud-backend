@@ -28,7 +28,8 @@ update public.mensagens_config set email_ligado = false;
 -- ===== Parte B (comentada) =====
 -- drop function public.mensagem_recusar_premio(uuid, timestamptz);
 -- drop function public.mensagem_bloquear(uuid, text, timestamptz);
--- drop function public.mensagem_resultado(uuid, boolean, text, text, boolean, timestamptz);
+-- drop function public.mensagem_soltar(uuid, uuid, timestamptz);
+-- drop function public.mensagem_resultado(uuid, uuid, boolean, text, text, boolean, timestamptz);
 -- drop function public.mensagens_preparar(text, timestamptz, int);
 -- drop function public.mensagens_destino_email(uuid, uuid);
 -- drop function public.mensagem_enfileirar(text, text, text, text, timestamptz, text, text, text, uuid, uuid, uuid, uuid, timestamptz);

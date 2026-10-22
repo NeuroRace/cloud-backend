@@ -66,8 +66,10 @@ create table public.mensagens (
                          'pendente', 'enviada', 'falhou', 'expirada', 'cancelada', 'bloqueada')),
   tentativas           int not null default 0,
   proxima_tentativa_em timestamptz,
-  -- Trava de envio: enquanto valer, outro envio nao pega a mensagem.
+  -- Trava de envio: enquanto valer, outro envio nao pega a mensagem. envio_id e o dono da
+  -- trava: so o envio que pegou a mensagem mexe na trava dela (mensagem_resultado/soltar).
   travada_ate          timestamptz,
+  envio_id             uuid,
   provedor_id          text,
   erro                 text,
   criada_em            timestamptz not null,
@@ -179,6 +181,8 @@ declare
   v_usados     int;
   v_devolvidas int := 0;
 begin
+  -- Uma preparacao por vez: duas execucoes ao mesmo tempo contariam o mesmo teto.
+  perform pg_advisory_xact_lock(hashtext('neurorace_mensagens'));
   select * into cfg from mensagens_config;
 
   -- Mensagem vencida nunca sai, nem quando o canal religar.
@@ -191,14 +195,15 @@ begin
      and (x.travada_ate is null or x.travada_ate <= p_agora)
      and exists (select 1 from mensagens_bloqueio b where b.canal = x.canal and b.contato = x.destino);
 
-  -- "Voce venceu" e lembrete de um premio que passou, foi recusado ou entregue: nao sai.
+  -- "Voce venceu" e lembrete de um premio que passou, foi recusado, entregue, apagado (conta
+  -- apagada: premio_id vira null) ou com o prazo estourado: nao sai. Aviso atrasado mandaria a
+  -- pessoa ao estande sem garantia; o codigo continua no cartao do site (NEU-171).
   -- (O "prazo passou" e justamente sobre premio que nao vale mais, entao fica.)
   update mensagens x set estado = 'cancelada', erro = 'o premio nao vale mais', atualizada_em = p_agora
    where x.canal = p_canal and x.estado = 'pendente' and x.tipo in ('premio_venceu', 'premio_lembrete')
      and (x.travada_ate is null or x.travada_ate <= p_agora)
-     and x.premio_id is not null
      and not exists (select 1 from premios p where p.id = x.premio_id
-                       and p.status in ('avisando', 'avisado', 'prazo_estourou', 'aviso_falhou'));
+                       and p.status in ('avisando', 'avisado', 'aviso_falhou'));
 
   -- So o e-mail tem envio por enquanto (WhatsApp: NEU-113).
   if p_canal <> 'email' or not cfg.email_ligado then
@@ -233,8 +238,10 @@ begin
       update mensagens set erro = 'teto diario', atualizada_em = p_agora where id = m.id;
       continue;
     end if;
-    update mensagens set travada_ate = p_agora + interval '2 minutes', tentativas = tentativas + 1,
-                         atualizada_em = p_agora
+    -- 5 min: cabe um lote lento (20 x 10 s de timeout); o send-messages ainda solta o que nao
+    -- coube no prazo dele (mensagem_soltar).
+    update mensagens set travada_ate = p_agora + interval '5 minutes', envio_id = gen_random_uuid(),
+                         tentativas = tentativas + 1, atualizada_em = p_agora
      where id = m.id
     returning * into m;
     v_usados := v_usados + 1;
@@ -244,11 +251,14 @@ begin
 end;
 $$;
 
--- (8) Resultado de um envio. Falha temporaria -> nova tentativa em 1, 2, 4... min, ate
--- novas_tentativas; depois (ou falha definitiva) -> falhou. Falha de aviso de premio vai para o
--- registro da premiacao, que o operador ve no painel. Devolve o estado da mensagem.
-create function public.mensagem_resultado(p_id uuid, p_ok boolean, p_provedor_id text, p_erro text,
-                                          p_definitivo boolean, p_agora timestamptz)
+-- (8) Resultado de um envio. So o dono da trava (p_envio) decide uma falha: a falha de um envio
+-- antigo, cuja trava venceu e outro envio pegou, nao mexe em nada. Um OK, de qualquer envio,
+-- sempre vira enviada (o e-mail saiu e conta no teto), mesmo que a mensagem tenha expirado depois.
+-- Falha temporaria -> nova tentativa em 1, 2, 4... min, ate novas_tentativas; depois (ou falha
+-- definitiva) -> falhou. Falha de aviso de premio vai para o registro da premiacao, que o
+-- operador ve no painel. Devolve o estado da mensagem.
+create function public.mensagem_resultado(p_id uuid, p_envio uuid, p_ok boolean, p_provedor_id text,
+                                          p_erro text, p_definitivo boolean, p_agora timestamptz)
 returns text
 language plpgsql
 security definer
@@ -263,19 +273,24 @@ begin
   if m.id is null then
     return null;
   end if;
-  if m.estado <> 'pendente' then
-    return m.estado;
-  end if;
 
   if p_ok then
+    if m.estado = 'enviada' then
+      return 'enviada';
+    end if;
     update mensagens set estado = 'enviada', enviada_em = p_agora, provedor_id = p_provedor_id, erro = null,
-                         travada_ate = null, proxima_tentativa_em = null, atualizada_em = p_agora
+                         travada_ate = null, envio_id = null, proxima_tentativa_em = null, atualizada_em = p_agora
      where id = p_id;
     return 'enviada';
   end if;
 
+  if m.estado <> 'pendente' or m.envio_id is distinct from p_envio then
+    return m.estado;
+  end if;
+
   if p_definitivo or m.tentativas >= 1 + cfg.novas_tentativas then
-    update mensagens set estado = 'falhou', erro = p_erro, travada_ate = null, atualizada_em = p_agora
+    update mensagens set estado = 'falhou', erro = p_erro, travada_ate = null, envio_id = null,
+                         atualizada_em = p_agora
      where id = p_id;
     if m.premio_id is not null then
       perform premiacao_registra_erro(p_agora,
@@ -285,10 +300,26 @@ begin
     return 'falhou';
   end if;
 
-  update mensagens set erro = p_erro, travada_ate = null, atualizada_em = p_agora,
+  update mensagens set erro = p_erro, travada_ate = null, envio_id = null, atualizada_em = p_agora,
                        proxima_tentativa_em = p_agora + make_interval(mins => (2 ^ (greatest(m.tentativas, 1) - 1))::int)
    where id = p_id;
   return 'pendente';
+end;
+$$;
+
+-- (8b) Solta uma mensagem que o envio pegou mas nao chegou a mandar (prazo do lote, Brevo com a
+-- chave errada): volta para o proximo lote sem gastar tentativa. So o dono da trava solta.
+create function public.mensagem_soltar(p_id uuid, p_envio uuid, p_agora timestamptz)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update mensagens set travada_ate = null, envio_id = null, tentativas = greatest(tentativas - 1, 0),
+                       atualizada_em = p_agora
+   where id = p_id and estado = 'pendente' and envio_id = p_envio;
+  return found;
 end;
 $$;
 
@@ -346,11 +377,13 @@ end;
 $$;
 
 revoke all on function public.mensagens_preparar(text, timestamptz, int) from public, anon, authenticated;
-revoke all on function public.mensagem_resultado(uuid, boolean, text, text, boolean, timestamptz)
+revoke all on function public.mensagem_resultado(uuid, uuid, boolean, text, text, boolean, timestamptz)
   from public, anon, authenticated;
+revoke all on function public.mensagem_soltar(uuid, uuid, timestamptz) from public, anon, authenticated;
 revoke all on function public.mensagem_bloquear(uuid, text, timestamptz) from public, anon, authenticated;
 revoke all on function public.mensagem_recusar_premio(uuid, timestamptz) from public, anon, authenticated;
 grant execute on function public.mensagens_preparar(text, timestamptz, int) to service_role;
-grant execute on function public.mensagem_resultado(uuid, boolean, text, text, boolean, timestamptz) to service_role;
+grant execute on function public.mensagem_resultado(uuid, uuid, boolean, text, text, boolean, timestamptz) to service_role;
+grant execute on function public.mensagem_soltar(uuid, uuid, timestamptz) to service_role;
 grant execute on function public.mensagem_bloquear(uuid, text, timestamptz) to service_role;
 grant execute on function public.mensagem_recusar_premio(uuid, timestamptz) to service_role;
