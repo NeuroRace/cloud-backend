@@ -4,7 +4,7 @@
 -- da NEU-112. Tudo numa transacao com ROLLBACK no fim. O horario entra sempre por parametro.
 --
 -- Seed (UTC), aviso ligado as 10:00, espera 10 min, intervalo 30 min:
---   Rodada "C170 Rodada 1" 11:00-13:00. B 39,0 s as 11:30.
+--   Rodada "C170 Rodada 1" 11:00-14:00. B 39,0 s as 11:30.
 --   A (conta, e-mail confirmado): 41,0 s as 12:00 e 40,1 s as 12:08 -> um aviso, com 40,1 s, 2o.
 --   S (sem conta, e-mail do estande): 50 s as 12:00 -> convite, sem tempo nem posicao.
 --   P (sem conta, so celular): 50 s as 12:00 -> sem contato (WhatsApp e da NEU-113).
@@ -33,7 +33,7 @@ insert into public.players (id, email, phone, user_id) values
  ('17010000-0000-0000-0000-000000000008','av_e@neu170.test', null, null);
 
 insert into public.ranking_windows (id, name, starts_at, ends_at) values
- ('17020000-0000-0000-0000-000000000001','C170 Rodada 1','2020-06-01 11:00+00','2020-06-01 13:00+00');
+ ('17020000-0000-0000-0000-000000000001','C170 Rodada 1','2020-06-01 11:00+00','2020-06-01 14:00+00');
 
 -- corrida: (n, jogador, segundos, terminou = chegou na nuvem, fonte)
 create function pg_temp.corrida(n int, jogador uuid, segundos numeric, terminou timestamptz, fonte text default 'real')
@@ -154,6 +154,16 @@ begin
   assert (select count(*) from pg_temp.msgs('av_a@neu170.test')) = 2, 'depois do intervalo: novo aviso';
   assert (select corpo_texto from pg_temp.msgs('av_a@neu170.test') offset 1) like '%37,0' || chr(160) || 's, 1º na C170 Rodada 1%',
     'novo aviso com a corrida nova e a posicao nova';
+
+  -- Revisao 12: a corrida avisada nao e a melhor da conta na rodada -> sem posicao (a posicao
+  -- seria de outra corrida e leria como se fosse desta).
+  perform pg_temp.corrida(12,'17010000-0000-0000-0000-00000000000a',50.0,'2020-06-01 13:05+00');
+  perform public.avisos_corrida_tick('2020-06-01 13:15+00');
+  assert (select corpo_texto from pg_temp.msgs('av_a@neu170.test') offset 2)
+       = 'Sua corrida no NeuroRace foi registrada: 50,0' || chr(160) || 's. '
+         || 'Veja seu card e seu arquétipo em https://neurorace-v2.vercel.app/dashboard.',
+    'Revisao 12: sem posicao quando a corrida nao e a melhor da rodada, veio '
+      || coalesce((select corpo_texto from pg_temp.msgs('av_a@neu170.test') offset 2), 'nada');
 end $$;
 
 -- ===== Desligado: nao roda; contato bloqueado: a caixa de saida ja bloqueia =====

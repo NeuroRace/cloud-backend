@@ -146,11 +146,14 @@ begin
     order by w.starts_at desc
     limit 1;
     if v_round is not null then
-      -- A mesma posicao do ranking publico da rodada (get_leaderboard), pelo apelido unico.
+      -- A mesma posicao do ranking publico da rodada (get_leaderboard), pelo apelido unico. So
+      -- quando a corrida avisada e a melhor da conta na rodada: senao a posicao seria de outra
+      -- corrida e leria como se fosse desta.
       select l.rank into v_pos
       from get_leaderboard('best_time', 1000, v_de, v_ate) l
       join profiles pr on pr.display_name = l.display_name
-      where pr.id = v_user;
+      where pr.id = v_user
+        and l.score = extract(epoch from (melhor.finished_at - melhor.started_at))::numeric;
     end if;
     v_texto := 'Sua corrida no NeuroRace foi registrada: '
       || mensagem_formata_tempo(extract(epoch from (melhor.finished_at - melhor.started_at))::numeric)
