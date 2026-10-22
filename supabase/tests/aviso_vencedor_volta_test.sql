@@ -6,6 +6,7 @@ begin;
 do $$
 begin
   assert to_regprocedure('public.avisos_premio_tick(timestamptz)') is null, 'volta: a funcao some';
+  assert to_regprocedure('public.aviso_vencedor_texto(text,text,timestamptz,text)') is null, 'volta: o texto some';
   assert to_regclass('public.mensagens') is not null and to_regclass('public.premios') is not null,
     'volta: caixa de saida e premiacao ficam';
 end $$;

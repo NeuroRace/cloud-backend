@@ -9,3 +9,4 @@ begin
   end if;
 end $$;
 drop function public.avisos_premio_tick(timestamptz);
+drop function public.aviso_vencedor_texto(text, text, timestamptz, text);
