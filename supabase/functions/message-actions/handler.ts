@@ -14,7 +14,8 @@ export type DepsAcoes = {
 
 export function criarHandler(d: DepsAcoes): (req: Request) => Promise<Response> {
   const cors = {
-    "access-control-allow-origin": d.siteUrl,
+    // A origem do navegador nunca tem barra no fim: SITE_URL com barra nao casaria.
+    "access-control-allow-origin": d.siteUrl.replace(/\/+$/, ""),
     "access-control-allow-methods": "POST, OPTIONS",
     "access-control-allow-headers": "content-type",
     "vary": "origin",

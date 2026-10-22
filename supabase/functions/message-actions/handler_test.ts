@@ -105,6 +105,12 @@ Deno.test("CORS: so o site, nunca *", async () => {
   assertEquals(r.headers.get("access-control-allow-origin"), SITE);
 });
 
+Deno.test("Revisao 8: SITE_URL com barra no fim ainda casa com a origem do navegador", async () => {
+  const { h } = montar({ siteUrl: `${SITE}/` });
+  const pre = await h(new Request(URL_FN, { method: "OPTIONS" }));
+  assertEquals(pre.headers.get("access-control-allow-origin"), SITE);
+});
+
 Deno.test("erro do banco -> 500 sem detalhe", async () => {
   const { h } = montar({ recusar: () => Promise.reject(new Error("db fora: segredo")) });
   const r = await h(post(await token("recusar")));

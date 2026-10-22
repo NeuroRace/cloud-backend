@@ -43,8 +43,16 @@ Deno.test("400: falha definitiva (endereco invalido nao melhora tentando de novo
   }
 });
 
-Deno.test("500, 429 e 401: falha temporaria", async () => {
-  for (const status of [500, 503, 429, 401]) {
+Deno.test("401 e 403: erro de sistema (chave errada), nao gasta tentativa", async () => {
+  for (const status of [401, 403]) {
+    const r = await enviarBrevo(fetchQueResponde(status, { code: "unauthorized" }), KEY, "r@x", EMAIL);
+    assertEquals(r.ok, false);
+    if (!r.ok) assertEquals(r.sistema, true, `status ${status}`);
+  }
+});
+
+Deno.test("500 e 429: falha temporaria", async () => {
+  for (const status of [500, 503, 429]) {
     const r = await enviarBrevo(fetchQueResponde(status, { message: "x" }), KEY, "r@x", EMAIL);
     assertEquals(r.ok, false);
     if (!r.ok) assertEquals(r.definitivo, false, `status ${status}`);

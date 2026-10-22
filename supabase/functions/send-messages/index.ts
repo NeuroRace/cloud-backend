@@ -13,6 +13,7 @@ const LINK_SECRET = env("MENSAGENS_LINK_SECRET");
 const SITE_URL = env("SITE_URL") || "https://neurorace-v2.vercel.app";
 const SUPABASE_URL = env("SUPABASE_URL");
 const LOTE = 20;
+const PRAZO_LOTE_MS = 45_000;
 
 const supabase = createClient(SUPABASE_URL, env("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
 
@@ -37,10 +38,15 @@ Deno.serve(criarHandler({
           agoraSeg: Math.floor(Date.now() / 1000),
         }),
       enviar: (e) => enviarBrevo(fetch, BREVO_API_KEY, REMETENTE, e),
-      resultado: (id, r) =>
+      resultado: (m, r) =>
         rpc("mensagem_resultado", {
-          p_id: id, p_ok: r.ok, p_provedor_id: r.ok ? r.id : null, p_erro: r.ok ? null : r.erro,
-          p_definitivo: r.ok ? false : r.definitivo, p_agora: new Date().toISOString(),
+          p_id: m.id, p_envio: m.envio_id, p_ok: r.ok, p_provedor_id: r.ok ? r.id : null,
+          p_erro: r.ok ? null : r.erro, p_definitivo: r.ok ? false : r.definitivo, p_agora: new Date().toISOString(),
         }),
+      soltar: (m) =>
+        rpc("mensagem_soltar", { p_id: m.id, p_envio: m.envio_id, p_agora: new Date().toISOString() }),
+      agoraMs: () => Date.now(),
+      // Abaixo do minuto do cron e bem abaixo da trava de 5 min do banco.
+      prazoMs: PRAZO_LOTE_MS,
     }),
 }));

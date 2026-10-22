@@ -12,7 +12,7 @@ Deno.test("sem a Brevo configurada: 503 e nao prepara nada (nada fica travado)",
   let rodou = false;
   const h = criarHandler({ cronToken: "tok", pronto: false, rodar: () => {
     rodou = true;
-    return Promise.resolve({ enviadas: 0, falhas: 0 });
+    return Promise.resolve({ enviadas: 0, falhas: 0, soltas: 0 });
   } });
   const r = await h(req("POST", "tok"));
   assertEquals(r.status, 503);
@@ -24,7 +24,7 @@ Deno.test("token do cron errado ou ausente: 401", async () => {
   let rodou = false;
   const h = criarHandler({ cronToken: "tok", pronto: true, rodar: () => {
     rodou = true;
-    return Promise.resolve({ enviadas: 0, falhas: 0 });
+    return Promise.resolve({ enviadas: 0, falhas: 0, soltas: 0 });
   } });
   assertEquals((await h(req("POST", "outro"))).status, 401);
   assertEquals((await h(req("POST"))).status, 401);
@@ -32,20 +32,20 @@ Deno.test("token do cron errado ou ausente: 401", async () => {
 });
 
 Deno.test("cron token vazio no ambiente nunca autoriza", async () => {
-  const h = criarHandler({ cronToken: "", pronto: true, rodar: () => Promise.resolve({ enviadas: 0, falhas: 0 }) });
+  const h = criarHandler({ cronToken: "", pronto: true, rodar: () => Promise.resolve({ enviadas: 0, falhas: 0, soltas: 0 }) });
   assertEquals((await h(req("POST", ""))).status, 401);
 });
 
 Deno.test("GET: 405", async () => {
-  const h = criarHandler({ cronToken: "tok", pronto: true, rodar: () => Promise.resolve({ enviadas: 0, falhas: 0 }) });
+  const h = criarHandler({ cronToken: "tok", pronto: true, rodar: () => Promise.resolve({ enviadas: 0, falhas: 0, soltas: 0 }) });
   assertEquals((await h(req("GET", "tok"))).status, 405);
 });
 
 Deno.test("ok: 200 com as contagens", async () => {
-  const h = criarHandler({ cronToken: "tok", pronto: true, rodar: () => Promise.resolve({ enviadas: 2, falhas: 1 }) });
+  const h = criarHandler({ cronToken: "tok", pronto: true, rodar: () => Promise.resolve({ enviadas: 2, falhas: 1, soltas: 0 }) });
   const r = await h(req("POST", "tok"));
   assertEquals(r.status, 200);
-  assertEquals(await r.json(), { enviadas: 2, falhas: 1 });
+  assertEquals(await r.json(), { enviadas: 2, falhas: 1, soltas: 0 });
 });
 
 Deno.test("erro ao preparar (banco fora): 500 sem detalhe", async () => {
