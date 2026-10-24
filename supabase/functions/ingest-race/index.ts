@@ -1,6 +1,6 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { tokenMatches } from "./auth.ts";
-import { validateIngestBody } from "./contract.ts";
+import { rpcStatusResponse, validateIngestBody } from "./contract.ts";
 
 const EDGE_INGEST_TOKEN = Deno.env.get("EDGE_INGEST_TOKEN") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -45,15 +45,22 @@ Deno.serve(async (req: Request) => {
   }
 
   const status = (data as { status?: string } | null)?.status;
-  if (status !== "created" && status !== "duplicate") {
+  const answer = rpcStatusResponse(status);
+  if (!answer) {
     log("error", "ingest_unexpected_rpc_result", {
       race_id: payload.race_id, idempotency_key: payload.idempotency_key,
     });
     return json(500, { error: "db_error", message: "unexpected ingest result" });
   }
+  if (answer.status !== 200) {
+    log("warn", "ingest_nickname_not_found", {
+      race_id: payload.race_id, idempotency_key: payload.idempotency_key, player_slot: payload.player_slot,
+    });
+    return json(answer.status, answer.body);
+  }
   log("info", "ingest_ok", {
     status, race_id: payload.race_id,
     idempotency_key: payload.idempotency_key, player_slot: payload.player_slot,
   });
-  return json(200, { status });
+  return json(200, answer.body);
 });

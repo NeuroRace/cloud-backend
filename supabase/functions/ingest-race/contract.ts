@@ -19,7 +19,14 @@ export function validateIngestBody(body: unknown): ValidationResult {
   if (b.player_slot !== 1 && b.player_slot !== 2) return fail("player_slot_must_be_1_or_2");
   // Vem um dos dois: e-mail (como sempre) ou, no lugar dele, player_phone (NEU-159).
   const hasEmail = typeof b.player_email === "string" && b.player_email.trim() !== "";
-  if (b.player_phone !== undefined && b.player_phone !== null) {
+  const hasPhone = b.player_phone !== undefined && b.player_phone !== null;
+  // Apelido do site (profiles.display_name): mesma regra do site, 3 a 20 sem espaco nas pontas.
+  if (b.player_nickname !== undefined && b.player_nickname !== null) {
+    const n = b.player_nickname;
+    if (typeof n !== "string" || n !== n.trim() || n.length < 3 || n.length > 20)
+      return fail("player_nickname_invalid");
+    if (hasEmail || hasPhone) return fail("player_nickname_and_other_contact");
+  } else if (hasPhone) {
     if (typeof b.player_phone !== "string" || !PHONE_RE.test(b.player_phone)) return fail("player_phone_invalid");
     if (hasEmail) return fail("player_email_and_phone_both");
   } else if (!hasEmail) return fail("player_email_required");
@@ -49,4 +56,12 @@ export function validateIngestBody(body: unknown): ValidationResult {
       return fail("telemetry_eeg_power_must_be_object");
   }
   return { ok: true };
+}
+
+// Resposta HTTP para o status devolvido pelo ingest_race. null = status inesperado (500).
+export function rpcStatusResponse(status: unknown): { status: number; body: Record<string, string> } | null {
+  if (status === "created" || status === "duplicate") return { status: 200, body: { status } };
+  if (status === "unknown_nickname")
+    return { status: 422, body: { error: "player_nickname_not_found", message: "no account with this nickname" } };
+  return null;
 }
