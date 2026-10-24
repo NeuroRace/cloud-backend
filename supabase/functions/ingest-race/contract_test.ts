@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { validateIngestBody } from "./contract.ts";
+import { rpcStatusResponse, validateIngestBody } from "./contract.ts";
 
 const valid = {
   schema_version: "1.0",
@@ -142,4 +142,49 @@ Deno.test("nem email nem celular falha como hoje", () => {
 Deno.test("email e celular juntos falha", () => {
   const r = validateIngestBody({ ...phoneBody, player_email: "a@test.com" });
   assertEquals(r.ok ? "" : r.error, "player_email_and_phone_both");
+});
+
+// Apelido do site (profiles.display_name) como terceira forma de identificar. Vem um so.
+const nickBody = { ...noEmail, player_nickname: "Breq" };
+Deno.test("so apelido valido passa", () => assert(validateIngestBody(nickBody).ok));
+Deno.test("apelido com email vazio passa", () =>
+  assert(validateIngestBody({ ...nickBody, player_email: "" }).ok));
+Deno.test("apelido com celular null passa", () =>
+  assert(validateIngestBody({ ...nickBody, player_phone: null }).ok));
+Deno.test("apelido fora da regra do site falha", () => {
+  for (const nick of ["ab", "", " Breq", "Breq ", "a".repeat(21), 123, {}]) {
+    const r = validateIngestBody({ ...nickBody, player_nickname: nick });
+    assertEquals(r.ok ? "" : r.error, "player_nickname_invalid", JSON.stringify(nick));
+  }
+});
+Deno.test("apelido 3 e 20 caracteres passa", () => {
+  assert(validateIngestBody({ ...nickBody, player_nickname: "abc" }).ok);
+  assert(validateIngestBody({ ...nickBody, player_nickname: "a".repeat(20) }).ok);
+});
+Deno.test("apelido conta caracteres como o banco (emoji = 1)", () => {
+  assert(validateIngestBody({ ...nickBody, player_nickname: "😀".repeat(20) }).ok);
+  const r = validateIngestBody({ ...nickBody, player_nickname: "😀a" });
+  assertEquals(r.ok ? "" : r.error, "player_nickname_invalid");
+});
+Deno.test("apelido junto de email ou celular falha", () => {
+  const r = validateIngestBody({ ...nickBody, player_email: "a@test.com" });
+  assertEquals(r.ok ? "" : r.error, "player_nickname_and_other_contact");
+  const r2 = validateIngestBody({ ...nickBody, player_phone: "+5511987654321" });
+  assertEquals(r2.ok ? "" : r2.error, "player_nickname_and_other_contact");
+});
+Deno.test("apelido null cai na regra de hoje", () => {
+  const r = validateIngestBody({ ...noEmail, player_nickname: null });
+  assertEquals(r.ok ? "" : r.error, "player_email_required");
+  assert(validateIngestBody({ ...valid, player_nickname: null }).ok);
+});
+
+// Resposta HTTP a partir do status do ingest_race.
+Deno.test("status do ingest_race vira resposta", () => {
+  assertEquals(rpcStatusResponse("created"), { status: 200, body: { status: "created" } });
+  assertEquals(rpcStatusResponse("duplicate"), { status: 200, body: { status: "duplicate" } });
+  assertEquals(rpcStatusResponse("unknown_nickname"), {
+    status: 422, body: { error: "player_nickname_not_found", message: "no account with this nickname" },
+  });
+  assertEquals(rpcStatusResponse(undefined), null);
+  assertEquals(rpcStatusResponse("outra"), null);
 });
