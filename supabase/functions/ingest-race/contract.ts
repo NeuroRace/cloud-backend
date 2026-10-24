@@ -20,10 +20,11 @@ export function validateIngestBody(body: unknown): ValidationResult {
   // Vem um dos dois: e-mail (como sempre) ou, no lugar dele, player_phone (NEU-159).
   const hasEmail = typeof b.player_email === "string" && b.player_email.trim() !== "";
   const hasPhone = b.player_phone !== undefined && b.player_phone !== null;
-  // Apelido do site (profiles.display_name): mesma regra do site, 3 a 20 sem espaco nas pontas.
+  // Apelido do site (profiles.display_name): mesma regra do banco, 3 a 20 caracteres (char_length,
+  // por isso Array.from: emoji conta 1) sem espaco nas pontas.
   if (b.player_nickname !== undefined && b.player_nickname !== null) {
     const n = b.player_nickname;
-    if (typeof n !== "string" || n !== n.trim() || n.length < 3 || n.length > 20)
+    if (typeof n !== "string" || n !== n.trim() || Array.from(n).length < 3 || Array.from(n).length > 20)
       return fail("player_nickname_invalid");
     if (hasEmail || hasPhone) return fail("player_nickname_and_other_contact");
   } else if (hasPhone) {

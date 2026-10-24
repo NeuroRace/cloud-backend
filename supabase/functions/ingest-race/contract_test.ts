@@ -161,6 +161,11 @@ Deno.test("apelido 3 e 20 caracteres passa", () => {
   assert(validateIngestBody({ ...nickBody, player_nickname: "abc" }).ok);
   assert(validateIngestBody({ ...nickBody, player_nickname: "a".repeat(20) }).ok);
 });
+Deno.test("apelido conta caracteres como o banco (emoji = 1)", () => {
+  assert(validateIngestBody({ ...nickBody, player_nickname: "😀".repeat(20) }).ok);
+  const r = validateIngestBody({ ...nickBody, player_nickname: "😀a" });
+  assertEquals(r.ok ? "" : r.error, "player_nickname_invalid");
+});
 Deno.test("apelido junto de email ou celular falha", () => {
   const r = validateIngestBody({ ...nickBody, player_email: "a@test.com" });
   assertEquals(r.ok ? "" : r.error, "player_nickname_and_other_contact");
